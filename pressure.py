@@ -9,6 +9,8 @@ from Elveflow64 import *
 
 Instr_ID = c_int64()
 
+
+
 #Input the setup type
 def pressure_init():
     print("Instrument name and regulator types are hardcoded in the Python script")
@@ -23,11 +25,9 @@ def sensor_init():
     error=OB1_Add_Sens(Instr_ID, 3, 10, 0, 0, 7, 0)
     print('error add digit flow sensor:%d' % error)
 
-def pressure_calib():
+def pressure_calib(answer):
     Calib = (c_double*1000)() # Always define array this way, calibration should have 1000 elements
     while True:
-        #ADD THIS TO QUESTION
-        answer = ('select calibration type (default, load, new ) : ')
         Calib_path = 'C:\\Users\\Public\\Desktop\\Calibration\\Calib.txt'
         if answer == 'default':
             error = Elveflow_Calibration_Default (byref(Calib),1000)
