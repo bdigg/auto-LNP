@@ -16,6 +16,9 @@ customtkinter.set_default_color_theme("green")  # Themes: "blue" (standard), "gr
 #Preset Vars
 
 db.create_connection()
+db.create_setups_table()
+db.create_experiments_table()
+
 
 class Controller():
     def __init__(self, app):
@@ -65,15 +68,14 @@ class App(customtkinter.CTk):
         self.queue_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Queue", font=customtkinter.CTkFont(size=30, weight="bold"))
         self.queue_label.grid(row=0, column=0, padx=20, pady=(20, 10))
         #Queued step
-        #for x in     
-        self.queued1 = customtkinter.CTkButton(self.sidebar_frame2, text="-", anchor="center", fg_color="transparent", corner_radius=0, border_color="white")
-        self.queued1.grid(row=1, column=0, padx=20, pady=(10, 0))
-        self.queued2 = customtkinter.CTkButton(self.sidebar_frame2, text="-", anchor="center", fg_color="transparent", corner_radius=0, border_color="white")
-        self.queued2.grid(row=2, column=0, padx=20, pady=(10, 0))
-        self.queued3 = customtkinter.CTkButton(self.sidebar_frame2, text="-", anchor="center", fg_color="transparent", corner_radius=0, border_color="white")
-        self.queued3.grid(row=3, column=0, padx=20, pady=(10, 0))
-        self.queued4 = customtkinter.CTkButton(self.sidebar_frame2, text="-", anchor="center", fg_color="transparent", corner_radius=0, border_color="white")
-        self.queued4.grid(row=4, column=0, padx=20, pady=(10, 0))
+        for self.i, self.exp_name in enumerate(db.get_experiment_names_in_order()):  
+            self.queued1 = customtkinter.CTkButton(self.sidebar_frame2, text=self.exp_name, anchor="center", fg_color="transparent", corner_radius=0, border_color="white")
+            self.queued1.grid(row=self.i+1, column=0, padx=20, pady=(10, 0))
+
+        print(db.get_experiment_names_in_order())
+        self.clear_queue_button = customtkinter.CTkButton(self.sidebar_frame2, text="Clear Queue", command=self.clear_queue)
+        self.clear_queue_button.grid(row=9, column=0, sticky="wes", padx=20, pady=(10, 0))
+
 
     # create main entry and button
 
@@ -144,12 +146,17 @@ class App(customtkinter.CTk):
     def rename_setups():
         print("oi")
 
+    def clear_queue(self):
+        db.delete_all_experiments()
+        
+        print("Queue Cleared")
+
+# ---------------------------------------------------------------------------------------------SETUP ----------------------------------------------------------------------
 class SetupWindow(customtkinter.CTkToplevel):
     def __init__(setupself, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         #setupself.App = App()
-
         setupself.geometry("500x400")
         setupself.title("Setup")
         setupself.resizable(False, False)
@@ -157,7 +164,7 @@ class SetupWindow(customtkinter.CTkToplevel):
         #setupself.grid_columnconfigure((0), weight=1)
         #setupself.grid_rowconfigure((0), weight=1)
         setupself.platform_label = customtkinter.CTkLabel(setupself, text="Setup", font=customtkinter.CTkFont(size=30, weight="bold"))
-        setupself.platform_label.grid(row=0, column=0,sticky="nsew", columnspan=5,padx=(60,0),pady=(5,0))
+        setupself.platform_label.grid(row=0, column=0,sticky="nsew", columnspan=5,padx=(0,0),pady=(5,0))
         
         setupself.setup_pumps_label = customtkinter.CTkLabel(setupself, text="Pumps", font=customtkinter.CTkFont(size=20,weight="bold"))
         setupself.setup_pumps_label.grid(row=1,column=0, padx=(0,60))
@@ -234,7 +241,9 @@ class SetupWindow(customtkinter.CTkToplevel):
         #Add if load doesnt exist, then grey out
 
         setupself.save_button = customtkinter.CTkButton(setupself, text="Save", command=setupself.setup_save_event)
-        setupself.save_button.grid(row=9, column=1, sticky="w", pady=(30), padx=(5,0))
+        setupself.save_button.grid(row=9, column=2, sticky="w", pady=(30), padx=(5,0))
+        setupself.setup_name_entry = customtkinter.CTkEntry(setupself, placeholder_text= "Setup Name")
+        setupself.setup_name_entry.grid(row=9, column=0, sticky="we", pady=(30), padx=(5,0), columnspan=2)
 
         setupself.setup_pumps_label = customtkinter.CTkLabel(setupself, text="Error Message:")
         setupself.setup_pumps_label.grid(row=9,column=1, pady=(0,60),sticky="w")
@@ -263,49 +272,32 @@ class SetupWindow(customtkinter.CTkToplevel):
     def R4combo_callback(setupself, value):
         print("segmented button clicked:", value)
 
-    global channel1
 
     def setup_save_event(setupself):
         print("exit")
         ctr.setup_calib(setupself.setup_calib_button.get())
-        db.initiate_setups()
-        db.create_setup("Test", setupself.R1combobox.get(), setupself.R2combobox.get(), setupself.R3combobox.get(), setupself.R4combobox.get())
-        #(Nom,r1,r2,r3,r4) = db.get_setup_info("Test")
-        print("Database row:", db.get_setup_info("Test")[0])
-        if setupself.R1combobox.get() != None:
-            ctr.setup_ch1(setupself.R1combobox.get(),setupself.C1combobox.get(),setupself.V1combobox.get())
-            global reagvar1
-            reagvar1 = setupself.R1combobox.get()
-        if setupself.R2combobox.get() != None:
-            ctr.setup_ch2(setupself.R2combobox.get(),setupself.C2combobox.get(),setupself.V2combobox.get())
-            global reagvar2
-            reagvar2 = setupself.R2combobox.get()
-        if setupself.R3combobox.get() != None:
-            ctr.setup_ch3(setupself.R3combobox.get(),setupself.C3combobox.get(),setupself.V3combobox.get())
-            global reagvar3
-            reagvar3 = setupself.R3combobox.get()
-        if setupself.R4combobox.get() != None:
-            ctr.setup_ch4(setupself.R4combobox.get(),setupself.C4combobox.get(),setupself.V4combobox.get())
-            global reagvar4
-            reagvar4 = setupself.R4combobox.get()
+        db.create_setups_table()
+        global setup_name
+        setup_name = setupself.setup_name_entry.get() #Change this to an input   
+        db.create_setup(setup_name, setupself.R1combobox.get(), setupself.R2combobox.get(), setupself.R3combobox.get(), setupself.R4combobox.get())
+        print("Database row:", db.get_setup_info(setup_name))
         setupself.destroy()
 
+#----------------------------------------------------------------------------------ADD EXPERIMENT------------------------------------------------------------------------------------
+
 class AddExpWindow(customtkinter.CTkToplevel):
-    def __init__(setupself, *args, **kwargs):
+    def __init__(setupself, app, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        setupself.geometry("500x400")
+        setupself.geometry("375x450")
         setupself.title("Setup")
         setupself.resizable(False, False)
 
-        setupself.App = Controller(setupself)
-
-        #setupself.grid_columnconfigure((0), weight=1)
-        #setupself.grid_rowconfigure((0), weight=1)
         setupself.platform_label = customtkinter.CTkLabel(setupself, text="Add Experiment", font=customtkinter.CTkFont(size=30, weight="bold"))
         setupself.platform_label.grid(row=0, column=0,sticky="nsew",pady=(20,20),columnspan=4)
 
-        setupself.setup_pumps_label = customtkinter.CTkLabel(setupself, text="Channel", font=customtkinter.CTkFont(size=15,weight="bold"))
-        setupself.setup_pumps_label.grid(row=4,column=0, padx=(20), sticky="nsew")
+
+        setupself.setup_exp_label = customtkinter.CTkLabel(setupself, text="Channel", font=customtkinter.CTkFont(size=15,weight="bold"))
+        setupself.setup_exp_label.grid(row=4,column=0, padx=(20), sticky="nsew")
 
         setupself.setup_pumps_label = customtkinter.CTkLabel(setupself, text="Reagent", font=customtkinter.CTkFont(size=15,weight="bold"))
         setupself.setup_pumps_label.grid(row=4,column=1, padx=(20), sticky="nsew")
@@ -324,34 +316,43 @@ class AddExpWindow(customtkinter.CTkToplevel):
 
 
         #Channel 1
-        setupself.R1label = customtkinter.CTkLabel(setupself, text=reagvar1)
+        setupself.R1label = customtkinter.CTkLabel(setupself, text="-")
         setupself.R1label.grid(row=5,column=1, padx=(0,0),pady=(5),sticky="nsew")
         setupself.F1entry = customtkinter.CTkEntry(setupself)
-        setupself.F1entry.grid(row=5,column=2, padx=(5,0), pady=(5),sticky="e")
+        setupself.F1entry.grid(row=5,column=2, padx=(5,0), pady=(5))
 
 
         #Channel 2#
-        setupself.R2label = customtkinter.CTkLabel(setupself, text=reagvar2)
+        setupself.R2label = customtkinter.CTkLabel(setupself, text="-")
         setupself.R2label.grid(row=6,column=1, padx=(10,10),pady=(5),sticky="nsew")
         setupself.F2entry = customtkinter.CTkEntry(setupself)
-        setupself.F2entry.grid(row=6,column=2, padx=(5,0), pady=(5),sticky="e")
+        setupself.F2entry.grid(row=6,column=2, padx=(5,0), pady=(5))
 
         #Channel 3
-        setupself.R3label = customtkinter.CTkLabel(setupself, text=reagvar3)
+        setupself.R3label = customtkinter.CTkLabel(setupself, text="-")
         setupself.R3label.grid(row=7,column=1, padx=(10,10),pady=(5),sticky="nsew")
         setupself.F3entry = customtkinter.CTkEntry(setupself)
-        setupself.F3entry.grid(row=7,column=2, padx=(5,0), pady=(5),sticky="e")
+        setupself.F3entry.grid(row=7,column=2, padx=(5,0), pady=(5))
 
         #Channel 4
-        setupself.R4label = customtkinter.CTkLabel(setupself, text=reagvar4)
+        setupself.R4label = customtkinter.CTkLabel(setupself, text="-")
         setupself.R4label.grid(row=8,column=1, padx=(0,0),pady=(5),sticky="nsew")
         setupself.F4entry = customtkinter.CTkEntry(setupself)
-        setupself.F4entry.grid(row=8,column=2, padx=(5,0), pady=(5),sticky="e")
+        setupself.F4entry.grid(row=8,column=2, padx=(5,0), pady=(5))
 
         #Add if load doesnt exist, then grey out
 
         setupself.save_button = customtkinter.CTkButton(setupself, text="Add Single", command=setupself.addexp_save_event)
-        setupself.save_button.grid(row=5, column=3, sticky="nsew", pady=(30), padx=(10), rowspan=4)
+        setupself.save_button.grid(row=10, column=0, sticky="nsew", pady=(5), padx=(10), columnspan=4)
+
+        setupself.selection = customtkinter.CTkOptionMenu(setupself, values = (db.get_all_setup_names()), command=setupself.update_text)
+        setupself.selection.grid(row=1, column=0,sticky="nsew",padx=(50,50),pady=(0,20),columnspan=4)
+
+        setupself.setup_name_entry = customtkinter.CTkEntry(setupself, placeholder_text= "Experiment Name")
+        setupself.setup_name_entry.grid(row=9, column=0, sticky="we", pady=(30), padx=(10,0), columnspan=2)
+        setupself.autofill_button = customtkinter.CTkButton(setupself, text="Auto", command=setupself.autofill_name)
+        setupself.autofill_button.grid(row=9, column=2, sticky="nsew", pady=(30), padx=(10), columnspan=1)
+
 
     def sidebar_button_event(setupself):
         print("sidebar_button click") 
@@ -378,6 +379,27 @@ class AddExpWindow(customtkinter.CTkToplevel):
 
         setupself.app
         setupself.destroy()    
+
+    def update_text(setupself, choice):
+        setupself.R1label.configure(text = db.get_setup_info(choice)[2])
+        setupself.R2label.configure(text = db.get_setup_info(choice)[3])
+        setupself.R3label.configure(text = db.get_setup_info(choice)[4])
+        setupself.R4label.configure(text = db.get_setup_info(choice)[5])
+
+
+    def addexp_save_event(setupself):
+        print("save exp")
+        db.create_experiments_table()
+        experiment_name = setupself.setup_name_entry.get() #Change this to an input   setup_id, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow
+        db.create_experiment((db.get_setup_id_by_name(setupself.selection.get())), experiment_name, setupself.F1entry.get(), setupself.F2entry.get(), setupself.F3entry.get(), setupself.F4entry.get())
+        print("Database row:", db.get_experiment_info(experiment_name))
+        
+    def exit_exp(setupself):  
+        setupself.destroy()    
+    
+    def autofill_name(setupself):
+        setupself.setup_name_entry.delete(0)
+        setupself.setup_name_entry.insert(0,"Experiment A")
 
 if __name__ == "__main__":
     app = App()
