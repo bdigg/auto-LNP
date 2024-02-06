@@ -9,8 +9,6 @@ from Elveflow64 import *
 
 Instr_ID = c_int64()
 
-
-
 #Input the setup type
 def pressure_init():
     print("Instrument name and regulator types are hardcoded in the Python script")
@@ -43,11 +41,10 @@ def pressure_calib(answer):
             print('Calib saved in %s' % Calib_path.encode('ascii'))
             break
 
-def set_pressure():
+def set_pressure(set_channel,set_pressure):
     Calib = (c_double*1000)()
     set_channel=int(set_channel) # convert to int
     set_channel=c_int32(set_channel) # convert to c_int32
-    set_pressure=input("select pressure (-1000 to 8000 mbars) : ")
     set_pressure=float(set_pressure) 
     set_pressure=c_double(set_pressure) # convert to c_double
     error=OB1_Set_Press(Instr_ID.value, set_channel, set_pressure, byref(Calib),1000) 
