@@ -6,7 +6,7 @@ import sqlite3
 # create connection by using object
 # to connect with hotel_data database
 
-conn = sqlite3.connect('MFDatabase.db')
+conn = sqlite3.connect('MFDatabase.db', check_same_thread=False)
  
 cursor = conn.cursor()
 
@@ -35,7 +35,9 @@ def create_experiments_table():
             Ch3_Flow INT,
             Ch4_Flow INT,
             setup_id INTEGER,
-            activity BOOLEAN,
+            status TEXT,
+            Time_Rem INT, 
+            Repeat BOOLEAN,
             FOREIGN KEY (setup_id) REFERENCES Setups (setup_id)
         )
     ''')
@@ -87,10 +89,10 @@ def create_setup(setup_name, Ch1_Reag, Ch2_Reag, Ch3_Reag, Ch4_Reag):
     ''', (setup_name, Ch1_Reag, Ch2_Reag, Ch3_Reag, Ch4_Reag))
     conn.commit()
 
-def create_experiment(setup_id, experiment_name, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow):
+def create_experiment(setup_id, experiment_name, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow, status):
     cursor.execute('''
-        INSERT INTO Experiments (setup_id, experiment_name, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow) VALUES (?, ?, ?, ?, ?, ?)
-    ''', (setup_id, experiment_name, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow))
+        INSERT INTO Experiments (setup_id, experiment_name, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow, status) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (setup_id, experiment_name, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow, status))
     conn.commit()
 
 def get_all_setup_names():
@@ -188,6 +190,13 @@ def delete_all_records():
     cursor.execute('DROP TABLE IF EXISTS Records')
     conn.commit()
 
+def delete_experiments_table():
+    """
+    Delete the Records table.
+    """
+    cursor.execute('DROP TABLE IF EXISTS Experiments')
+    conn.commit()
+
 def is_experiments_table_empty():
     """
     Check if the Experiments table is empty.
@@ -223,6 +232,49 @@ def get_first_experiment_name():
     Returns None if the table is empty.
     """
     cursor.execute('SELECT experiment_name FROM Experiments ORDER BY experiment_id LIMIT 1')
+    result = cursor.fetchone()
+    return result[0] if result else None
+
+def get_flow_rates_from_first_experiment():
+    cursor.execute('SELECT Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow FROM Experiments ORDER BY experiment_id LIMIT 1')
+    result = cursor.fetchone()
+    return result if result else None
+
+def get_status_from_first_experiment():
+    cursor.execute('SELECT status FROM Experiments ORDER BY experiment_id LIMIT 1')
+    result = cursor.fetchone()
+    return result[0] if result else None
+
+def change_status_of_first_experiment(new_status):
+    cursor.execute('''
+        UPDATE Experiments 
+        SET status = ?
+        WHERE experiment_id = (
+            SELECT experiment_id FROM Experiments ORDER BY experiment_id LIMIT 1
+        )
+    ''', (new_status,))
+    conn.commit()
+
+def set_time_remaining_for_first_experiment(new_time_rem):
+    """
+    Set the Time_Rem value for the first experiment row in the Experiments table.
+    """
+    cursor.execute('''
+        UPDATE Experiments 
+        SET Time_Rem = ?
+        WHERE experiment_id = (
+            SELECT experiment_id FROM Experiments ORDER BY experiment_id LIMIT 1
+        )
+    ''', (new_time_rem,))
+    conn.commit()
+
+def get_time_remaining_for_first_experiment():
+    cursor.execute('''
+        SELECT Time_Rem
+        FROM Experiments
+        ORDER BY experiment_id
+        LIMIT 1
+    ''')
     result = cursor.fetchone()
     return result[0] if result else None
 

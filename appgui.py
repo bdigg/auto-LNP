@@ -20,6 +20,16 @@ db.create_setups_table()
 db.create_experiments_table()
 db.create_records_table()
 
+lock = threading.Lock()
+
+def Func(host,cursor,db):
+    try:
+        lock.acquire(True)
+        res = cursor.execute('''...''',(host,))
+        # do something
+    finally:
+        lock.release()
+
 
 class Controller():
     def __init__(self, app):
@@ -79,11 +89,11 @@ class App(customtkinter.CTk):
     # create main entry and button
         self.after(1000, self.update_main)
 
-        self.start_button_1 = customtkinter.CTkButton(text="Start",master=self, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"),font=customtkinter.CTkFont(size=15, weight="bold"), command=ctr.start_process)
+        self.start_button_1 = customtkinter.CTkButton(text="Start",master=self, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"),font=customtkinter.CTkFont(size=15, weight="bold"), command=self.start_process)
         self.start_button_1.grid(row=10, column=1,sticky="nsew",padx=20,pady=(0,20))
-        self.stop_button_1 = customtkinter.CTkButton(text="Pause",master=self, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), font=customtkinter.CTkFont(size=15, weight="bold"), command=ctr.stop_process)
-        self.stop_button_1.grid(row=10, column=2, sticky="nsew",padx=20,pady=(0,20))
-        self.next_button_1 = customtkinter.CTkButton(text="Next",master=self, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), font=customtkinter.CTkFont(size=15, weight="bold"), command=ctr.next_process)
+        self.pause_button_1 = customtkinter.CTkButton(text="Pause",master=self, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), font=customtkinter.CTkFont(size=15, weight="bold"), command=ctr.stop_process)
+        self.pause_button_1.grid(row=10, column=2, sticky="nsew",padx=20,pady=(0,20))
+        self.next_button_1 = customtkinter.CTkButton(text="Next",master=self, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), font=customtkinter.CTkFont(size=15, weight="bold"), command=self.next_process)
         self.next_button_1.grid(row=10, column=3, sticky="nsew",padx=20,pady=(0,20))
         self.status_label = customtkinter.CTkLabel(master=self,text="Status:", font=customtkinter.CTkFont(size=20, weight="bold"))
         self.status_label.grid(row=0, column=1, sticky="nsew",padx=20, columnspan=3)
@@ -101,7 +111,7 @@ class App(customtkinter.CTk):
         #Ch2
         self.Ch2_label = customtkinter.CTkLabel(master=self,text=("Channel 2"), font=customtkinter.CTkFont(size=20, weight="bold"))
         self.Ch2_label.grid(row=4, column=1, sticky="nsew",padx=20)
-        self.Ch2FR_label = customtkinter.CTkLabel(master=self,text="Flow Rate")
+        self.Ch2FR_label = customtkinter.CTkLabel(master=self,text="Target Flow Rate")
         self.Ch2FR_label.grid(row=5, column=1, sticky="nsew",padx=20)
 
         #Ch3
@@ -120,16 +130,40 @@ class App(customtkinter.CTk):
         #Update status 
         if db.is_experiments_table_empty() == True:
             self.status_label.configure(text = "Status: No Experiments Queued")
+            self.Ch1FR_label.configure(text = "Pending Experiment")
+            self.Ch2FR_label.configure(text = "Pending Experiment")
+            self.Ch3FR_label.configure(text = "Pending Experiment")
+            self.Ch4FR_label.configure(text = "Pending Experiment")
         else:
+            exp_status = (db.get_status_from_first_experiment())
             Exp_name = (db.get_first_experiment_name())
-            status = ("Status:", Exp_name)
+            status = ("Status:", str(Exp_name), exp_status)
             self.status_label.configure(text = status)
+            if exp_status == "Pending":
+                Target_FR = db.get_flow_rates_from_first_experiment()
+                self.Ch1FR_label.configure(text = ("Target Flow Rate", str(Target_FR[0])))
+                self.Ch2FR_label.configure(text = ("Target Flow Rate", str(Target_FR[1])))
+                self.Ch3FR_label.configure(text = ("Target Flow Rate", str(Target_FR[2])))
+                self.Ch4FR_label.configure(text = ("Target Flow Rate", str(Target_FR[3])))
+            elif exp_status == "Active":
+                None
+            elif exp_status == "Paused":
+                None
+            
+        self.after(1000, self.update_main)
         #Update Input
             
         #Update Flow Rate and Pressure
         #Update time bar
         #Update activation of buttons
-        
+
+    def start_process(self):
+        thread = threading.Thread(target = ctr.start_process)
+        thread.start()
+
+    def next_process(self):
+        ctr.next_process()
+        self.update_right_sidebar()
 
     def update_right_sidebar(self):
         for widget in self.sidebar_frame2.winfo_children():
@@ -141,8 +175,7 @@ class App(customtkinter.CTk):
         self.clear_queue_button.grid(row=9, column=0, sticky="wes", padx=20, pady=(10, 0))
         self.queue_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Queue", font=customtkinter.CTkFont(size=30, weight="bold"))
         self.queue_label.grid(row=0, column=0, padx=20, pady=(20, 10))
-        #Update left sidebar - activations
-        self.after(1000, self.update_main)
+
 
 
     def open_input_dialog_event(self):
@@ -181,8 +214,8 @@ class App(customtkinter.CTk):
         
         print("Queue Cleared")
 
-    def comm_test(self):
-        print("Communication Active")
+    def comm_test(self,app):
+        print("Active")
 
 # ---------------------------------------------------------------------------------------------SETUP ----------------------------------------------------------------------
 class SetupWindow(customtkinter.CTkToplevel):
@@ -328,6 +361,8 @@ class AddExpWindow(customtkinter.CTkToplevel):
         self.title("Setup")
         self.resizable(False, False)
         self.app = app
+        self.app.comm_test(app)
+
 
         self.platform_label = customtkinter.CTkLabel(self, text="Add Experiment", font=customtkinter.CTkFont(size=30, weight="bold"))
         self.platform_label.grid(row=0, column=0,sticky="nsew",pady=(20,20),columnspan=4)
@@ -427,8 +462,9 @@ class AddExpWindow(customtkinter.CTkToplevel):
         print("save exp")
         db.create_experiments_table()
         experiment_name = self.setup_name_entry.get() #Change this to an input   setup_id, Ch1_Flow, Ch2_Flow, Ch3_Flow, Ch4_Flow
-        db.create_experiment((db.get_setup_id_by_name(self.selection.get())), experiment_name, self.F1entry.get(), self.F2entry.get(), self.F3entry.get(), self.F4entry.get())
+        db.create_experiment((db.get_setup_id_by_name(self.selection.get())), experiment_name, self.F1entry.get(), self.F2entry.get(), self.F3entry.get(), self.F4entry.get(), "Pending")
         print("Database row:", db.get_experiment_info(experiment_name))
+        self.app.update_right_sidebar()
         
     def exit_exp(self):  
         self.destroy()    

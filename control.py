@@ -1,9 +1,10 @@
 import pressure as press
 import time
 import db 
+import appgui as App
+
 
 pstate = False
-
 reagents = ["None","DPPC","DOPC","LysoPC","Chol","Buffer"]
 def main_loop():
     while True:
@@ -19,27 +20,45 @@ def start_process():
     if db.is_experiments_table_empty() == True:
         print("No queued experiments - start")
     else:
-        next_exp = db.get_experiment_names_in_order()[0] #Check that this is getting creation order not alphabetical
+        #if db.get_status_from_first_experiment() == "Paused":
+        #    experiment_t  = db.get_time_remaining_for_first_experiment() 
+        #else:
+        #    
+        experiment_t = 20
+        next_exp = db.get_experiment_names_in_order()[0] #Check that this is getting creation order not alphabetical]
         next_exp_info = db.get_experiment_info(next_exp)
-        experiment_t = 10 
         start_t = time.time()
-        while True:
-            # Check if the elapsed time match the time limit
-            if (time.time() - start_t) > experiment_t:
-                break
-            # Wait until desired period time
-            if pstate == True:
+        db.change_status_of_first_experiment("Active")
+        if pstate == True:
                 #Set pump pressure
                 press.set_flow1(1,next_exp_info[2])
                 press.set_flow1(2,next_exp_info[3])
                 press.set_flow1(3,next_exp_info[4])
                 press.set_flow1(4,next_exp_info[5])
+                print("Set flow - X")
                 #Collect Experiment Data
-            else:
-                print("Set flow",next_exp_info[2:6])
-                time.sleep(1)
+        while True:
+            #App.App.update(self)
+            # Check if the elapsed time match the time limit
+            if (time.time() - start_t) > experiment_t:
+                break
+            if db.get_status_from_first_experiment() == "Paused":
+                db.set_time_remaining_for_first_experiment(experiment_t - time.time - start_t)
+                remaining_t = experiment_t - time.time - start_t
+                break 
+                #Collect Experiment Dats
                 #press.set_pressure()
-        next_process()
+        if pstate == True:
+            #Set pump pressure
+            press.set_flow1(1,0)
+            press.set_flow1(2,0)
+            press.set_flow1(3,0)
+            press.set_flow1(4,0)
+            print("Set flow - 0")
+        db.change_status_of_first_experiment("Finished")        
+        #if remaining_t <= 0:
+        #    next_process()
+        
 
 def next_process():
     #Save experiment data to another database
@@ -59,9 +78,9 @@ def next_process():
         #Call start for next experiment
         start_process()
 
-
 def stop_process():
     print("Stawwwwwp")
+    db.change_status_of_first_experiment("Paused")
 
 def setup_initiate():
     print("Initialising Setup")
