@@ -2,6 +2,7 @@ import pressure as press
 import time
 import db 
 import appgui as App
+from queue import Queue
 
 
 pstate = False

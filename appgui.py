@@ -8,6 +8,7 @@ sys.path.append('./control.py')
 import control as ctr
 import threading
 import db 
+import queue as Queue
 
 #Setup Gui
 customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
@@ -19,8 +20,6 @@ db.create_connection()
 db.create_setups_table()
 db.create_experiments_table()
 db.create_records_table()
-
-lock = threading.Lock()
 
 def Func(host,cursor,db):
     try:
