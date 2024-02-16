@@ -29,10 +29,11 @@ pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
 pump.pressure_calib(pressure_calibrate)
 #---------------------------------Main Loop------------------------------------
 K_p = 0.01
+K_i = 0.01
 p_range = [0,100] #min,max
 
 experiment_t = 60
 
-pump.main_PID(K_p,FR,experiment_t)
+pump.main_PID(K_p,K_i,FR,experiment_t)
 
 #Set limits for flow control - once x flow reached, begin exp for x seconds

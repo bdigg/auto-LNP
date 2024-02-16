@@ -77,7 +77,7 @@ def get_pressure_data(press_channel):
 # OB1 arrangement
 period = 0.5
 
-def main_PID(K_p,set_FR,exp_t):
+def main_PID(K_p,K_i,set_FR,exp_t):
 
     active_channels, fr, pr_control = [],[0,0,0,0],[0,0,0,0]
     print("Starting main PID")
@@ -97,6 +97,7 @@ def main_PID(K_p,set_FR,exp_t):
 
     start_t = time.time() # <- This must be close to the routine
     last_t = start_t
+    I = 0
 
     while True:
         for i, channel  in enumerate(active_channels):
@@ -106,7 +107,8 @@ def main_PID(K_p,set_FR,exp_t):
             fr_error = fr[i]-set_FR[i]
             pr = get_pressure_data(channel)[0]  
             #real_pressure_list.append(pr)  
-            adjustment =  fr_error*K_p
+            I = I + K_i*fr_error*(period)
+            adjustment =  fr_error*K_p + I
             pr_control[i] = pr_control[i] - adjustment 
             #cont_pressure_list.append(pr_control)
             set_pressure(channel,pr_control[i])
