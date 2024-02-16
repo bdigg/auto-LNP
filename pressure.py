@@ -8,6 +8,7 @@ from array import array
 from Elveflow64 import *
 import time
 import matplotlib.pyplot as plt
+import numpy as np
 
 Instr_ID = c_int32()
 
@@ -74,38 +75,19 @@ def get_pressure_data(press_channel):
 # Controller parameters: Very soft controller
 
 # OB1 arrangement
-period = 0.1
+period = 0.5
 
-def main_PID(K_p,K_i,FR1,FR2,FR3,FR4,exp_t):
+def main_PID(K_p,set_FR,exp_t):
 
+    active_channels, fr, pr_control = [],[0,0,0,0],[0,0,0,0]
     print("Starting main PID")
-    # Start running the PI Control on remote mode
-    error = OB1_Start_Remote_Measurement(Instr_ID.value, byref(Calib), 1000)
-    # Start the PID Controller onsite
-    if FR1 != None:
-        p_channel = c_int32( int(1) ) # convert to c_int32
-        fs_channel = c_int32( int(1) ) # convert to c_int32
-        error = PID_Add_Remote(Instr_ID.value, p_channel, Instr_ID.value, fs_channel, K_p, K_i, 1) 
-        ref_flow = c_double( float(FR1) )
-        error = OB1_Set_Remote_Target(Instr_ID.value, p_channel, ref_flow)
-    if FR2 != None:
-        p_channel = c_int32( int(2) ) # convert to c_int32
-        fs_channel = c_int32( int(2) ) # convert to c_int32
-        error = PID_Add_Remote(Instr_ID.value, p_channel, Instr_ID.value, fs_channel, K_p, K_i, 1) 
-        ref_flow = c_double( float(FR2) )
-        error = OB1_Set_Remote_Target(Instr_ID.value, p_channel, ref_flow)
-    if FR3 != None:
-        p_channel = c_int32( int(3) ) # convert to c_int32
-        fs_channel = c_int32( int(3) ) # convert to c_int32
-        error = PID_Add_Remote(Instr_ID.value, p_channel, Instr_ID.value, fs_channel, K_p, K_i, 1) 
-        ref_flow = c_double( float(FR3) )
-        error = OB1_Set_Remote_Target(Instr_ID.value, p_channel, ref_flow)
-    if FR4 != None:
-        p_channel = c_int32( int(4) ) # convert to c_int32
-        fs_channel = c_int32( int(4) ) # convert to c_int32
-        error = PID_Add_Remote(Instr_ID.value, p_channel, Instr_ID.value, fs_channel, K_p, K_i, 1)
-        ref_flow = c_double( float(FR4) )
-        error = OB1_Set_Remote_Target(Instr_ID.value, p_channel, ref_flow)
+
+    set_pressure(1,5)
+
+    for n, FR in enumerate(set_FR):
+        if FR != None:
+            active_channels.append(n+1)
+            pr_control[n] = get_pressure_data(n+1)[0]
 
     # Set the reference
     flow_list_ch1, flow_list_ch2, flow_list_ch3, flow_list_ch4 = [],[],[],[]
@@ -115,44 +97,27 @@ def main_PID(K_p,K_i,FR1,FR2,FR3,FR4,exp_t):
 
     start_t = time.time() # <- This must be close to the routine
     last_t = start_t
-    while True:
-        if FR1 != None:
-            error = OB1_Get_Remote_Data(Instr_ID.value, fs_channel, byref(control_val_ch1), byref(meas_flow_ch1))
-            flow_list_ch1.append( meas_flow_ch1.value )
-            control_list_ch1.append( control_val_ch1.value )
-        if FR2 != None:
-            error = OB1_Get_Remote_Data(Instr_ID.value, fs_channel, byref(control_val_ch2), byref(meas_flow_ch1))
-            flow_list_ch1.append( meas_flow_ch1.value )
-            control_list_ch1.append( control_val_ch1.value )
-        if FR3 != None: 
-            error = OB1_Get_Remote_Data(Instr_ID.value, fs_channel, byref(control_val_ch3), byref(meas_flow_ch1))
-            flow_list_ch1.append( meas_flow_ch1.value )
-            control_list_ch1.append( control_val_ch1.value )
-        if FR4 != None:
-            error = OB1_Get_Remote_Data(Instr_ID.value, fs_channel, byref(control_val_ch4), byref(meas_flow_ch1))
-            flow_list_ch1.append( meas_flow_ch1.value )
-            control_list_ch1.append( control_val_ch1.value )
 
-        # Check if the elapsed time match the time limit
+    while True:
+        for i, channel  in enumerate(active_channels):
+            fr[i] = get_sensor_data(channel)[0]
+            #flow_list.append(fr)
+            print("Flow rate Channel",channel,"-",fr[i])
+            fr_error = fr[i]-set_FR[i]
+            pr = get_pressure_data(channel)[0]  
+            #real_pressure_list.append(pr)  
+            adjustment =  fr_error*K_p
+            pr_control[i] = pr_control[i] - adjustment 
+            #cont_pressure_list.append(pr_control)
+            set_pressure(channel,pr_control[i])
+
         if (time.time() - start_t) > exp_t:
             break
         # Wait until desired period time
         sleep_t = period - (time.time() - last_t)
         if sleep_t > 0:
             time.sleep( sleep_t )
-        last_t = time.time() # And update the last time
+        last_t = time.time() # And update the last time 
 
-    error = OB1_Stop_Remote_Measurement(Instr_ID.value)
-    print('Stop. Error value: %d' % error)
-
-    # Plot the signals
-    plt.rcParams['axes.grid'] = True
-    fig=plt.figure()
-    fig.suptitle("Remote PID Control")
-
-    plt.subplot(2,1,1)
-    plt.plot(flow_list_ch1)
-    plt.ylabel('flow [uL/min]')
-    plt.subplot(2,1,2)
-    plt.plot(control_list_ch1)
-    plt.ylabel('pressure [mbar]')
+    for i in active_channels:
+        set_pressure(i,0)

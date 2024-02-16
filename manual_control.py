@@ -21,22 +21,18 @@ sensor4 = None #[4,5,1,0]
 #Pressure calibrate
 pressure_calibrate = "default"
 
-flowrate1 = 50
-flowrate2 = None
-flowrate3 = None
-flowrate4 = None
+FR = [50,None,None,None]
 
 #----------------------------------Initiation-----------------------------------
 pump.pressure_init()
 pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
 pump.pressure_calib(pressure_calibrate)
 #---------------------------------Main Loop------------------------------------
-K_p = 0.05
-K_i = 0.03
+K_p = 0.01
 p_range = [0,100] #min,max
 
-experiment_t = 10
+experiment_t = 60
 
-pump.main_PID(K_p,K_i,flowrate1,flowrate2,flowrate3,flowrate4,experiment_t)
+pump.main_PID(K_p,FR,experiment_t)
 
 #Set limits for flow control - once x flow reached, begin exp for x seconds
