@@ -77,34 +77,39 @@ def get_pressure_data(press_channel):
 # OB1 arrangement
 period = 0.5
 
-def main_PID(K_p,K_i,set_FR,exp_t):
+def main_PI(K_p,K_i,set_FR,exp_t,eqb_t):
 
-    active_channels, fr, pr_control = [],[0,0,0,0],[0,0,0,0]
-    print("Starting main PID")
+    active_channels, fr, fr_perc_error, fr_perc_error_prev, pr_control = [],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]
+    collection = False
 
-    set_pressure(1,5)
-
+    #Set the inital pressure and get first pressure reading
     for n, FR in enumerate(set_FR):
         if FR != None:
+            set_pressure(n+1,5)
             active_channels.append(n+1)
             pr_control[n] = get_pressure_data(n+1)[0]
 
     # Set the reference
-    flow_list_ch1, flow_list_ch2, flow_list_ch3, flow_list_ch4 = [],[],[],[]
-    control_list_ch1, control_list_ch2, control_list_ch3, control_list_ch4 = [],[],[],[]
-    meas_flow_ch1, meas_flow_ch2, meas_flow_ch3, meas_flow_ch4  = c_double(), c_double(), c_double(), c_double()
-    control_val_ch1, control_val_ch2, control_val_ch3, control_val_ch4 = c_double(), c_double(), c_double(), c_double()
+    flow_list = [[],[],[],[]]
+    control_list = [[],[],[],[]]
+    meas_flow = [c_double(), c_double(), c_double(), c_double()]
+    control_val = [c_double(), c_double(), c_double(), c_double()]
 
+    #Read inital time
+    active_t = eqb_t
     start_t = time.time() # <- This must be close to the routine
     last_t = start_t
     I = 0
 
+    print("Start Equilibration Stage")
+    #print("Sample",x,"Flow rates:",)
     while True:
         for i, channel  in enumerate(active_channels):
             fr[i] = get_sensor_data(channel)[0]
             #flow_list.append(fr)
             print("Flow rate Channel",channel,"-",fr[i])
             fr_error = fr[i]-set_FR[i]
+            fr_perc_error[i] = fr_error/set_FR[i]
             pr = get_pressure_data(channel)[0]  
             #real_pressure_list.append(pr)  
             I = I + K_i*fr_error*(period)
@@ -112,8 +117,18 @@ def main_PID(K_p,K_i,set_FR,exp_t):
             pr_control[i] = pr_control[i] - adjustment 
             #cont_pressure_list.append(pr_control)
             set_pressure(channel,pr_control[i])
+    
+        if np.max(fr_perc_error,fr_perc_error_prev) < 0.05 and collection == False:
+            print("Beginning Collection")
+            #Move to well position
+            collection = True
+            eqb_t =  time.time() + exp_t + start_t
+        elif np.max(fr_perc_error,fr_perc_error_prev) > 0.05 and collection == True:
+            print("Flow rate condition fail")
+            consistent_fr = False
+        fr_perc_error_prev = fr_perc_error
 
-        if (time.time() - start_t) > exp_t:
+        if (time.time() - start_t) > active_t:
             break
         # Wait until desired period time
         sleep_t = period - (time.time() - last_t)
@@ -123,3 +138,8 @@ def main_PID(K_p,K_i,set_FR,exp_t):
 
     for i in active_channels:
         set_pressure(i,0)
+    if collection == False:
+        print("Equilibration Failed")
+
+
+    return(collection,consistent_fr)
