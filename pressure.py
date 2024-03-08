@@ -8,7 +8,9 @@ from array import array
 from Elveflow64 import *
 import time
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import numpy as np
+#import control.matlab as mlcontrol
 
 Instr_ID = c_int32()
 
@@ -22,13 +24,13 @@ def pressure_init():
 
 def sensor_init(sensor1, sensor2, sensor3, sensor4):
     if sensor1 != None:
-        error=OB1_Add_Sens(Instr_ID, sensor1[0], sensor1[0], sensor1[0], sensor1[0], 7, 0)
+        error=OB1_Add_Sens(Instr_ID, sensor1[0], sensor1[1], sensor1[2], sensor1[3], 7, 0)
     if sensor2 != None:
-        error=OB1_Add_Sens(Instr_ID, 2, 10, 0, 0, 7, 0)
+        error=OB1_Add_Sens(Instr_ID, sensor2[0], sensor2[1], sensor2[2], sensor2[3], 7, 0)
     if sensor3 != None:
-        error=OB1_Add_Sens(Instr_ID, 3, 10, 0, 0, 7, 0)
+        error=OB1_Add_Sens(Instr_ID, sensor3[0], sensor3[1], sensor3[2], sensor3[3], 7, 0)
     if sensor4 != None:
-        error=OB1_Add_Sens(Instr_ID, 3, 10, 0, 0, 7, 0)
+        error=OB1_Add_Sens(Instr_ID, sensor4[0], sensor4[1], sensor4[2], sensor4[3], 7, 0)
 
     print('error add digit flow sensor:%d' % error)
 
@@ -72,26 +74,97 @@ def get_pressure_data(press_channel):
     error=OB1_Get_Press(Instr_ID.value, set_channel, 1, byref(Calib),byref(get_pressure), 1000) # Acquire_data=1 -> read all the analog values
     return get_pressure.value, error
 
-# Controller parameters: Very soft controller
+def flush(active_channels, pressure, last_t):
+    print("Flushing System")
+    for i, channel in enumerate(active_channels):
+        set_pressure(channel,pressure)
 
-# OB1 arrangement
-period = 0.5
+    start_t = time.time() 
+    exp_t = last_t
+    while True:
+        if (time.time() - start_t) > exp_t:
+            break
 
-def main_PI(K_p,K_i,set_FR,exp_t,eqb_t):
+def stability_test(active_channels, pressures):
+    print("Stability Test")
+    for pressure in pressures:
+        for channel in active_channels:
+            set_pressure(channel,pressure)
+            print("Channel",channel,"Pressure",pressure)
+        print("Wait 10 seconds")
+        time.sleep(10)
+        start_t,last_t = time.time(),time.time()
+        exp_t = 5
+        t = 0
+        prange = [[],[],[],[]]
+        while True:
+            for i, channel in enumerate(active_channels):
+                flowrate = get_sensor_data(channel)
+                print(channel,get_sensor_data(channel))
+            print(t,"seconds")
+            if (time.time() - start_t) > exp_t:
+                break
+            # Wait until desired period time
+            sleep_t = 1 - (time.time() - last_t)
+            if sleep_t > 0:
+                time.sleep( sleep_t )
+            last_t = time.time() # And update the last time  
+            t += 1        
 
-    active_channels, fr, fr_perc_error, fr_perc_error_prev, pr_control = [],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]
+
+def auto_tune(active_chans,period):
+    print("Auto Tune")
+    Kp, Ki = [],[]
+    for chan in active_chans:
+        start_t = time.time()
+        press_val = 0
+        prev_output = get_sensor_data(chan)
+
+        while True:
+            current_t = time.time()
+            elapsed_t = current_t - start_t
+        
+            if elapsed_t >= 5:
+                start_t = current_t
+                press_val = (1 - press_val)*50
+                set_pressure(chan,press_val)
+
+            output = get_sensor_data()
+
+            if (output - prev_output) * (output - 10.0) < 0:
+                period = elapsed_t
+                ultimate_gain = output
+                break
+
+            previous_output = output
+
+        Kp.append(0.45 * ultimate_gain)
+        Ki.append(2 * Kp / period)
+        
+def animate(i,flow_list,real_press_list,time_list):
+    ax1.clear()
+    ax2.clear()
+    for flow in flow_list:
+        ax1.plot(time_list,flow)
+    for press in real_press_list:
+        ax2.plot(time_list,press)
+    plt.title('Flow')
+    ax1.set_ylabel('flow [uL/min]')
+    ax1.set_ylabel('pressure [mbar]')
+    plt.xlabel('Time (s)')
+
+def main_PI(period,K_p,K_i,set_FR,exp_t,eqb_t,eqb_d):
+
+    active_channels, fr, fr_perc_error, pr_control = [],[0,0,0,0],[[],[],[],[]],[0,0,0,0]
     collection = False
 
     #Set the inital pressure and get first pressure reading
     for n, FR in enumerate(set_FR):
         if FR != None:
-            set_pressure(n+1,5)
             active_channels.append(n+1)
-            pr_control[n] = get_pressure_data(n+1)[0]
 
     # Set the reference
-    flow_list = [[],[],[],[]]
-    control_list = [[],[],[],[]]
+    flow_list, time_list, real_press_list, cont_press_list = [[],[],[],[]],[],[[],[],[],[]],[[],[],[],[]]
     meas_flow = [c_double(), c_double(), c_double(), c_double()]
     control_val = [c_double(), c_double(), c_double(), c_double()]
 
@@ -99,47 +172,68 @@ def main_PI(K_p,K_i,set_FR,exp_t,eqb_t):
     active_t = eqb_t
     start_t = time.time() # <- This must be close to the routine
     last_t = start_t
-    I = 0
+    t = 0
+    I,consistent_fr = [0,0,0,0],[]
+    
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+    ax2 = fig.add_subplot(2,1,1)
+    ani = animation.FuncAnimation(fig, animate, fargs=(flow_list,real_press_list,time_list), interval=1000)
+    plt.show()
 
     print("Start Equilibration Stage")
     #print("Sample",x,"Flow rates:",)
     while True:
+        time_list.append((time.time() - start_t))
         for i, channel  in enumerate(active_channels):
             fr[i] = get_sensor_data(channel)[0]
-            #flow_list.append(fr)
-            print("Flow rate Channel",channel,"-",fr[i])
+            flow_list[i].append(fr[i])
             fr_error = fr[i]-set_FR[i]
-            fr_perc_error[i] = fr_error/set_FR[i]
+            fr_perc_error[i].append(abs(fr_error/set_FR[i]))
             pr = get_pressure_data(channel)[0]  
-            #real_pressure_list.append(pr)  
-            I = I + K_i*fr_error*(period)
-            adjustment =  fr_error*K_p + I
+            real_press_list.append(pr)  
+            I[i] = I[i] + K_i*fr_error*(period)
+            adjustment =  fr_error*K_p + I[i]
             pr_control[i] = pr_control[i] - adjustment 
-            #cont_pressure_list.append(pr_control)
-            set_pressure(channel,pr_control[i])
+            cont_press_list.append(pr_control)
+            set_pressure(channel,pr_control[i]) 
+        print("Ch1-FR {:.2f}".format(fr[0]),"Ch2-FR {:.2f}".format(fr[1]),"Ch3-FR {:.2f}".format(fr[2]))
+
+
+        if t > eqb_d*2:
+            if np.max((fr_perc_error[i])[(t-eqb_d*2):t]) < 0.05 and collection == False:
+                print(np.max((fr_perc_error[i])[(t-eqb_d*2):t]))
+                print("Beginning Collection\n\n\n")
+                #Move to well position
+                collection = True
+                start_t = time.time()
+                active_t = exp_t
+            elif np.max((fr_perc_error[i])[(t-eqb_d*2):t]) > 0.1 and collection == True:
+                print("Flow rate condition fail")
     
-        if np.max(fr_perc_error,fr_perc_error_prev) < 0.05 and collection == False:
-            print("Beginning Collection")
-            #Move to well position
-            collection = True
-            eqb_t =  time.time() + exp_t + start_t
-        elif np.max(fr_perc_error,fr_perc_error_prev) > 0.05 and collection == True:
-            print("Flow rate condition fail")
-            consistent_fr = False
-        fr_perc_error_prev = fr_perc_error
 
         if (time.time() - start_t) > active_t:
             break
+
         # Wait until desired period time
         sleep_t = period - (time.time() - last_t)
         if sleep_t > 0:
             time.sleep( sleep_t )
         last_t = time.time() # And update the last time 
+        t = t+1
 
-    for i in active_channels:
-        set_pressure(i,0)
+    for i, chan in enumerate(active_channels):
+        consistent_fr.append(np.max((fr_perc_error[i])[(t-exp_t*2):t]))
+    
     if collection == False:
-        print("Equilibration Failed")
-
+        print("Equilibration Failed - error", consistent_fr)
+    else:
+        print("Collection Successful - error", consistent_fr) 
 
     return(collection,consistent_fr)
+
+def stop():
+    set_pressure(1,0)
+    set_pressure(2,0)
+    set_pressure(3,0)
+    set_pressure(4,0)
