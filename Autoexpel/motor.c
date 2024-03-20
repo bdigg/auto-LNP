@@ -1,5 +1,6 @@
 // Adapted from Niall McIntyre 2023 (Adapted from Nick Brooks)
 
+
 #include <ezButton.h>
 
 
@@ -9,19 +10,23 @@ char receivedChars[numChars];
 
 char messageFromPC = 0;
 int integerFromPC = 0;
-float floatFromPC = 0.0;
-
+float floatFromPC1 = 0.0;
+float floatFromPC2 = 0.0;
 boolean newData = false;
  // create ezButton object that attaches to pin 12
 
 const int dirPin1 = 2;
 const int stepPin1 = 3;
-const int dirPin2 = 8;
-const int stepPin2 = 9;
+const int dirPin2 = 5;
+const int stepPin2 = 6;
+const int dirPin3 = 8;
+const int stepPin3 = 9;
 const int motorSpeed = 1000;
 
 const int ls1 = 4;
-const int ls2= 10;
+const int ls2= 7;
+const int ls3= 11;
+
 
 ezButton limitSwitch1(ls1);
 ezButton limitSwitch2(ls2);
@@ -33,14 +38,21 @@ ezButton limitSwitch2(ls2);
 
 //Sets the direction and speed of motor
 //Sets the direction and speed of motor
-void setMotor1Direction (int value) {
+void setMotorHorzDirection (int value) {
   digitalWrite(dirPin1, value);
   Serial.println("Turnt1");
 
 }
 
 
-void setMotor2Direction (int value) {
+void setMotorVertDirection (int value) {
+  digitalWrite(dirPin3, value);
+  if (value == 0) {
+    value = 1;
+  }
+  else {
+    value = 0;
+  }
   digitalWrite(dirPin2, value);
   Serial.println("Turnt2");
 }
@@ -48,7 +60,7 @@ void setMotor2Direction (int value) {
 
 
 
-void setDistance1 (int distance){
+void setDistanceHorz (int distance){
   for (int x = 0; x < distance; x++)
   {
     digitalWrite(stepPin1, HIGH);
@@ -62,7 +74,7 @@ void setDistance1 (int distance){
 }
 
 
-void setDistance1LS (int distance, int speed){
+void setDistanceHorzLS (int distance, int speed){
   for (int x = 0; x < distance; x++)
   {
     digitalWrite(stepPin1, HIGH);
@@ -73,39 +85,87 @@ void setDistance1LS (int distance, int speed){
   }
 
 }
-void setDistance2 (int distance){
+void setDistanceVert (int distance){
   for (int x = 0; x < distance; x++)
   {
     digitalWrite(stepPin2, HIGH);
     delayMicroseconds(motorSpeed);
     digitalWrite(stepPin2, LOW);
     delayMicroseconds(motorSpeed);
-
+    digitalWrite(stepPin3, HIGH);
+    delayMicroseconds(motorSpeed);
+    digitalWrite(stepPin3, LOW);
+    delayMicroseconds(motorSpeed);
   }
+
   Serial.println("Moved2");
 
 }
 
-void setDistance2LS (int distance, int speed){
+void setDistanceVertLS (int distance, int speed){
   for (int x = 0; x < distance; x++)
   {
     digitalWrite(stepPin2, HIGH);
     delayMicroseconds(speed);
     digitalWrite(stepPin2, LOW);
     delayMicroseconds(speed);
+    digitalWrite(stepPin3, HIGH);
+    delayMicroseconds(speed);
+    digitalWrite(stepPin3, LOW);
+    delayMicroseconds(speed);
 
   }
 
 }
 
-void setMotor1DirectionLS (int value) {
+void setMotorHorzDirectionLS (int value) {
   digitalWrite(dirPin1, value);
 
 }
 
-
-void setMotor2DirectionLS (int value) {
+void setMotorVertDirectionLS (int value) {
+  digitalWrite(dirPin3, value);
+  if (value == 0) {
+    value = 1;
+  }
+  else {
+    value = 0;
+  }
   digitalWrite(dirPin2, value);
+}
+
+void setDistanceBoth(int distance1, int distance2) {
+  int steps1 = abs(distance1); // Number of steps for horizontal (m1)
+  int steps2 = abs(distance2); // Number of steps for motor (m2 and m3)
+  Serial.println(steps1,steps2);
+
+  // Loop through the maximum number of steps for both motors
+  for (int x = 0; x < max(steps1, steps2); x++) {
+    // Control motor 1 if there are remaining steps
+    if (x < steps1) {
+      digitalWrite(stepPin1, HIGH);
+      delayMicroseconds(motorSpeed);
+      digitalWrite(stepPin1, LOW);
+      delayMicroseconds(motorSpeed);
+    }
+
+    // Control motor 2 if there are remaining steps
+    if (x < steps2) {
+      digitalWrite(stepPin2, HIGH);
+      delayMicroseconds(motorSpeed);
+      digitalWrite(stepPin2, LOW);
+      delayMicroseconds(motorSpeed);
+      digitalWrite(stepPin3, HIGH);
+      delayMicroseconds(motorSpeed);
+      digitalWrite(stepPin3, LOW);
+      delayMicroseconds(motorSpeed);
+
+    Serial.println(x);
+
+    }
+  }
+
+  Serial.println("Moved Both");
 }
 
 
@@ -120,11 +180,11 @@ void Homing() {
   while (!isStopped1) {
     limitSwitch1.loop();
 
-    setMotor1DirectionLS(1);
-    setMotor2DirectionLS(1);
+    setMotorHorzDirectionLS(1);
+    setMotorVertDirectionLS(1);
     
 
-    setDistance1LS(1, 1000);
+    setDistanceHorzLS(1, 1000);
 
     if (limitSwitch1.isPressed()) {
       isStopped1 = true;
@@ -134,9 +194,9 @@ void Homing() {
   // Once Stepper1 has hit its limit switch and set its position, move Stepper2
   if (isStopped1) {
     delay(1000);
-    setMotor1DirectionLS(0);
-    setDistance1LS(50, 1000);
-    setMotor1DirectionLS(1);
+    setMotorHorzDirectionLS(0);
+    setDistanceHorzLS(50, 1000);
+    setMotorHorzDirectionLS(1);
     delay(1000);
 
 
@@ -146,7 +206,7 @@ void Homing() {
     while (!isStopped2) {
       limitSwitch1.loop();
       
-      setDistance1LS(1, 1000);
+      setDistanceHorzLS(1, 1000);
 
       delay(100);
 
@@ -169,7 +229,7 @@ void Homing() {
     while (!isStopped3) {
       limitSwitch2.loop();
       
-      setDistance2LS(1, 1000);
+      setDistanceVertLS(1, 1000);
 
 
       if (!isStopped3) {
@@ -182,9 +242,9 @@ void Homing() {
 
   if (isStopped3) {
     delay(1000);
-    setMotor2DirectionLS(0);
-    setDistance2LS(50, 1000);
-    setMotor2DirectionLS(1);
+    setMotorVertDirectionLS(0);
+    setDistanceVertLS(50, 1000);
+    setMotorVertDirectionLS(1);
     delay(1000);
 
 
@@ -194,153 +254,7 @@ void Homing() {
     while (!isStopped4) {
       limitSwitch2.loop();
       
-      setDistance2LS(1, 1000);
-      delay(100);
-
-
-      if (!isStopped4) {
-        if (limitSwitch2.isPressed()) {
-          isStopped4 = true;
-          Serial.println("Done");
-        }
-      }
-    }
-  }
-
-
-
-
-}
-
-
-
-
-void HomingTest2() {
-  bool isStopped1 = false;
-  bool isStopped2 = false;
-  int counter1 = 0;
-  int counter2 = 0;
-
-
-  while (!isStopped1) {
-    limitSwitch1.loop();
-
-    setMotor1DirectionLS(1);
-    setMotor2DirectionLS(1);
-
-    setDistance1LS(1, 1000);
-    counter1++;  // Increment counter1
-
-    if (limitSwitch1.isPressed()) {
-      isStopped1 = true;
-      Serial.println("Limit switch 1 pressed");
-    }
-  }
-  Serial.print("Counter 1: ");
-  Serial.println(counter1);
-
-  // Once Stepper1 has hit its limit switch and set its position, move Stepper2
-  if (isStopped1) {
-    while (!isStopped2) {
-      limitSwitch2.loop();
-      setDistance2LS(1, 1000);
-      counter2++;  // Increment counter2
-
-      if (!isStopped2) {
-        if (limitSwitch2.isPressed()) {
-          isStopped2 = true;
-          Serial.println("Stepper 2 stopped");
-        }
-      }
-    }
-  }
-  Serial.print("Counter 2: ");
-  Serial.println(counter2);
-}
-
-void HomingTRIAL2() {
-  bool isStopped1 = false;
-  bool isStopped2 = false;
-  bool isStopped3 = false;
-  bool isStopped4 = false;
-
-
-  while (!isStopped1) {
-    limitSwitch1.loop();
-
-    setMotor1DirectionLS(1);
-    setMotor2DirectionLS(1);
-    
-
-    setDistance1LS(1, 1000);
-
-    if (limitSwitch1.isPressed()) {
-      isStopped1 = true;
-    }
-  }
-
-  // Once Stepper1 has hit its limit switch and set its position, move Stepper2
-  if (isStopped1) {
-    delay(1000);
-    setMotor1DirectionLS(0);
-    setDistance1LS(50, 1000);
-    setMotor1DirectionLS(1);
-    delay(1000);
-
-
-
-
-
-    while (!isStopped2) {
-      limitSwitch1.loop();
-      
-      setDistance1LS(1, 1000);
-      delay(100);
-
-
-      if (!isStopped2) {
-        if (limitSwitch1.isPressed()) {
-          isStopped2 = true;
-        }
-      }
-    }
-  }
-
-
-
-  if (isStopped2) {
-    delay(1000);
-
-
-    while (!isStopped3) {
-      limitSwitch2.loop();
-      
-      setDistance2LS(1, 1000);
-
-
-      if (!isStopped3) {
-        if (limitSwitch2.isPressed()) {
-          isStopped3 = true;
-        }
-      }
-    }
-  }
-
-  if (isStopped3) {
-    delay(1000);
-    setMotor2DirectionLS(0);
-    setDistance2LS(50, 1000);
-    setMotor2DirectionLS(1);
-    delay(1000);
-
-
-
-
-
-    while (!isStopped4) {
-      limitSwitch2.loop();
-      
-      setDistance2LS(1, 1000);
+      setDistanceVertLS(1, 1000);
       delay(100);
 
 
@@ -403,8 +317,8 @@ void parseData() {      // split the data into its parts
   messageFromPC = receivedChars[0];
 
   //Remainder of received data converted to number
-  atofIndx = receivedChars + 1;
-  floatFromPC = atof(atofIndx);
+  atofIndx = strtok(receivedChars + 1, ",");
+  floatFromPC1 = atof(atofIndx);
 
 }
 
@@ -419,24 +333,25 @@ void showParsedData() {
   */
 
   if (messageFromPC == 'M') {
-    setMotor1Direction (floatFromPC);
+    setMotorHorzDirection (floatFromPC1);
   }
 
   else if (messageFromPC == 'N') {
-    setMotor2Direction (floatFromPC);
+    setMotorVertDirection (floatFromPC1);
   }
 
   else if (messageFromPC == 'L'){
-    setDistance1 (floatFromPC);
+    setDistanceHorz (floatFromPC1);
   }
   
   else if (messageFromPC == 'P'){
-    setDistance2 (floatFromPC);
-  }
-  else if (messageFromPC == 'Q'){
-    HomingTest2 ();
+    setDistanceVert (floatFromPC1);
   }
 
+  else if (messageFromPC == 'B') {
+    setDistanceBoth (floatFromPC1,floatFromPC2);
+  }
+  
   else if (messageFromPC == 'H'){
     Homing ();
   }
@@ -456,7 +371,8 @@ void setup() {
 	pinMode(dirPin1, OUTPUT);
   pinMode(stepPin2, OUTPUT);
 	pinMode(dirPin2, OUTPUT);
-
+  pinMode(stepPin3, OUTPUT);
+	pinMode(dirPin3, OUTPUT);
 
 
 
