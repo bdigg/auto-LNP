@@ -18,9 +18,10 @@ Instr_ID = c_int32()
 def pressure_init():
     print("Instrument name and regulator types are hardcoded in the Python script")
     #Insert Machine Code HERE
-    error = OB1_Initialization('01EA53FD'.encode('ascii'),2,2,2,2,byref(Instr_ID)) 
+    error = OB1_Initialization('0204B3ED'.encode('ascii'),2,2,2,2,byref(Instr_ID)) 
     print('error:%d' % error)
     print("OB1 ID: %d" % Instr_ID.value)
+    return error
 
 def sensor_init(sensor1, sensor2, sensor3, sensor4):
     if sensor1 != None:
@@ -33,6 +34,7 @@ def sensor_init(sensor1, sensor2, sensor3, sensor4):
         error=OB1_Add_Sens(Instr_ID, sensor4[0], sensor4[1], sensor4[2], sensor4[3], 7, 0)
 
     print('error add digit flow sensor:%d' % error)
+    return error
 
 Calib = (c_double*1000)()
 def pressure_calib(answer):
@@ -52,6 +54,7 @@ def pressure_calib(answer):
             error = Elveflow_Calibration_Save(Calib_path.encode('ascii'), byref(Calib), 1000)
             print('Calib saved in %s' % Calib_path.encode('ascii'))
             break
+    return error
 
 def set_pressure(set_channel,set_pressure):
     set_channel=int(set_channel) # convert to int
@@ -77,19 +80,20 @@ def get_pressure_data(press_channel):
 def flush(active_channels, pressure, last_t):
     print("Flushing System")
     for i, channel in enumerate(active_channels):
-        set_pressure(channel,pressure)
+        error = set_pressure(channel,pressure)
 
     start_t = time.time() 
     exp_t = last_t
     while True:
         if (time.time() - start_t) > exp_t:
             break
+    return error
 
 def stability_test(active_channels, pressures):
     print("Stability Test")
     for pressure in pressures:
         for channel in active_channels:
-            set_pressure(channel,pressure)
+            error = set_pressure(channel,pressure)
             print("Channel",channel,"Pressure",pressure)
         print("Wait 10 seconds")
         time.sleep(10)
@@ -109,8 +113,58 @@ def stability_test(active_channels, pressures):
             if sleep_t > 0:
                 time.sleep( sleep_t )
             last_t = time.time() # And update the last time  
-            t += 1        
+            t += 1   
+    return error      
 
+def flowtable(active_channels,):
+    experiment_t = 3
+    period = 5
+    start_t = time.time()
+    last_t = start_t
+    ref_pressure = [0,10,20,30,40,50,60,70,80,90,100]
+    inc_pressure = [0,10,20,30,40,50,60,70,80,90,100]
+
+    flow_list, cont_pressure_list, real_pressure_list = [[],[],[],[]],[[],[],[],[]],[[],[],[],[]]
+    start_t = time.time()
+    last_t = start_t
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2,1,1)
+    ax2 = fig.add_subplot(2,1,2)
+
+    for ref_press in ref_pressure:
+        for channel in enumerate(active_channels):
+            set_pressure(channel,ref_press)
+        for inc_press in inc_pressure:
+            for j, channel in enumerate(active_channels):
+                print("Control P -",channel, inc_press)
+                cont_pressure_list[i].append(inc_press)
+                set_pressure(channel,inc_press)
+                sleep_t = period - (time.time() - last_t)
+                if sleep_t > 0:
+                    time.sleep( sleep_t )
+                fr = get_sensor_data(i)[0]
+                flow_list[i].append(fr)
+                print("Flow rate -",channel,fr)
+                pr = get_pressure_data(1)[0]  
+                real_pressure_list[i].append(pr)  
+                print("Actual P -", pr,"\n----")
+                
+                last_t = time.time() # And update the last time
+        
+                ax1.clear()
+                ax2.clear()
+                for i, chan in enumerate(active_channels):
+                    ax1.plot(time_list,flow_list[i],label="Channel %d" % chan)
+                    ax2.plot(time_list,cont_press_list[i],label="Channel %d" % chan)
+                ax1.legend()
+                ax2.legend()
+                plt.title('Flow')
+                ax1.set_ylabel('flow [uL/min]')
+                ax2.set_ylabel('pressure [mbar]')
+                plt.xlabel('Time (s)')
+                plt.pause(0.0001)
+                plt.show(block=False)
 
 def auto_tune(active_chans,period):
     print("Auto Tune")
@@ -141,17 +195,8 @@ def auto_tune(active_chans,period):
         Kp.append(0.45 * ultimate_gain)
         Ki.append(2 * Kp / period)
         
-def animate(i,flow_list,real_press_list,time_list):
-    ax1.clear()
-    ax2.clear()
-    for flow in flow_list:
-        ax1.plot(time_list,flow)
-    for press in real_press_list:
-        ax2.plot(time_list,press)
-    plt.title('Flow')
-    ax1.set_ylabel('flow [uL/min]')
-    ax1.set_ylabel('pressure [mbar]')
-    plt.xlabel('Time (s)')
+        
+
 
 def main_PI(period,K_p,K_i,set_FR,exp_t,eqb_t,eqb_d):
 
@@ -162,6 +207,8 @@ def main_PI(period,K_p,K_i,set_FR,exp_t,eqb_t,eqb_d):
     for n, FR in enumerate(set_FR):
         if FR != None:
             active_channels.append(n+1)
+            set_pressure(n+1,5) 
+
 
     # Set the reference
     flow_list, time_list, real_press_list, cont_press_list = [[],[],[],[]],[],[[],[],[],[]],[[],[],[],[]]
@@ -172,33 +219,42 @@ def main_PI(period,K_p,K_i,set_FR,exp_t,eqb_t,eqb_d):
     active_t = eqb_t
     start_t = time.time() # <- This must be close to the routine
     last_t = start_t
+    real_start_t = start_t
     t = 0
     I,consistent_fr = [0,0,0,0],[]
     
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
-    ax2 = fig.add_subplot(2,1,1)
-    ani = animation.FuncAnimation(fig, animate, fargs=(flow_list,real_press_list,time_list), interval=1000)
-    plt.show()
+    ax2 = fig.add_subplot(2,1,2)
+  
 
     print("Start Equilibration Stage")
     #print("Sample",x,"Flow rates:",)
     while True:
-        time_list.append((time.time() - start_t))
+        time_list.append((time.time() - real_start_t))
         for i, channel  in enumerate(active_channels):
             fr[i] = get_sensor_data(channel)[0]
+            if channel > 1: #If a lipid channel (in ethanol) make adjustment
+                fr[i] = (fr[i] - 4.52)*6.9
             flow_list[i].append(fr[i])
             fr_error = fr[i]-set_FR[i]
             fr_perc_error[i].append(abs(fr_error/set_FR[i]))
             pr = get_pressure_data(channel)[0]  
-            real_press_list.append(pr)  
+            real_press_list[i].append(pr)  
             I[i] = I[i] + K_i*fr_error*(period)
-            adjustment =  fr_error*K_p + I[i]
+            adjustment =  (fr_error*abs(fr_error))*K_p[i] + I[i]
+            if adjustment > 20:
+                adjustment = 20
+            if adjustment < -20:
+                adjustment = -20  
             pr_control[i] = pr_control[i] - adjustment 
-            cont_press_list.append(pr_control)
+            if pr_control[i] > 100:
+                pr_control[i] = 100
+            if pr_control[i] < 0:
+                pr_control[i] = 0
+            cont_press_list[i].append(pr_control[i])
             set_pressure(channel,pr_control[i]) 
         print("Ch1-FR {:.2f}".format(fr[0]),"Ch2-FR {:.2f}".format(fr[1]),"Ch3-FR {:.2f}".format(fr[2]))
-
 
         if t > eqb_d*2:
             if np.max((fr_perc_error[i])[(t-eqb_d*2):t]) < 0.05 and collection == False:
@@ -207,6 +263,7 @@ def main_PI(period,K_p,K_i,set_FR,exp_t,eqb_t,eqb_d):
                 #Move to well position
                 collection = True
                 start_t = time.time()
+                collect_t = time.time()
                 active_t = exp_t
             elif np.max((fr_perc_error[i])[(t-eqb_d*2):t]) > 0.1 and collection == True:
                 print("Flow rate condition fail")
@@ -221,6 +278,24 @@ def main_PI(period,K_p,K_i,set_FR,exp_t,eqb_t,eqb_d):
             time.sleep( sleep_t )
         last_t = time.time() # And update the last time 
         t = t+1
+        
+        ax1.clear()
+        ax2.clear()
+        for i, chan in enumerate(active_channels):
+            ax1.plot(time_list,flow_list[i],label="Channel %d" % chan)
+            ax2.plot(time_list,cont_press_list[i],label="Channel %d" % chan)
+        #if collection == True:
+        #    ax1.plot([collect_t,collect_t],np.linspace(np.min(cont_press_list),np.max(cont_press_list),2),'r')
+        #    ax2.plot([collect_t,collect_t],np.linspace(np.min(cont_press_list),np.max(cont_press_list),2),'r')
+        ax1.legend()
+        ax2.legend()
+        plt.title('Flow')
+        ax1.set_ylabel('flow [uL/min]')
+        ax2.set_ylabel('pressure [mbar]')
+        plt.xlabel('Time (s)')
+        plt.pause(0.0001)
+        plt.show(block=False)
+
 
     for i, chan in enumerate(active_channels):
         consistent_fr.append(np.max((fr_perc_error[i])[(t-exp_t*2):t]))
