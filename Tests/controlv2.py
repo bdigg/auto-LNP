@@ -1,7 +1,7 @@
-import pressure as press
+import pump as press
 import time
-import db 
-import appgui as App
+import CTkGUI.db as db 
+import CTkGUI.appgui as App
 from queue import Queue
 from threading import Thread
 

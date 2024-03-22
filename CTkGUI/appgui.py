@@ -5,9 +5,9 @@ import tkinter.messagebox
 import time
 import sys
 sys.path.append('./control.py')
-import control as ctr
+import CTkGUI.control as ctr
 import threading
-import db 
+import CTkGUI.db as db 
 import queue as Queue
 
 #Setup Gui

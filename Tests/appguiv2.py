@@ -8,7 +8,7 @@ sys.path.append('./control.py')
 import Tests.controlv2 as ctr
 from Tests.controlv2 import Control
 import threading
-import db 
+import CTkGUI.db as db 
 from queue import Queue
 
 #Setup Gui
