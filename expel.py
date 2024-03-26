@@ -78,37 +78,41 @@ def home(ser):
     readstring = b.decode("utf-8")
     #print(readstring)
 
-def homeandwaste(ser):
+def homeandfirst(ser):
+    print("To home and first well")
     home(ser)
     move(ser,"Vert","Away", 5000)
     move(ser,"Horz","Away", 5000)
-    move(ser,"Vert","Towards",1100)
 
 
-def wastetowell(ser,wpcurrent):
-    vstep = 3350/(7)*(wpcurrent[0]-1)
-    hstep = 5275/(11)*(wpcurrent[1]-1)
-    move(ser,"Vert","Away",(vstep+1100))
-    move(ser,"Horz","Away",(hstep))
+
+def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the current lel
+    vstep = 3350/(7)*(wpcurrent[0]-wpprev[0])
+    hstep = 5275/(11)*(wpcurrent[1]-wpprev[1])
+    print(vstep,hstep)
+    if vstep > 0:
+        move(ser,"Vert","Away",(vstep))
+    elif vstep < 0:
+        move(ser,"Vert","Towards",(vstep)) 
+    if hstep > 0:
+        move(ser,"Horz","Away",(hstep))
+    elif hstep < 0:
+        move(ser,"Horz","Towards",(hstep))
 
 
-def currenttowaste(ser,wpcurrent):
+def currenttowait(ser,wpcurrent):
     vstep = 3350/(7)*(wpcurrent[0]-1)
     hstep = 5275/(11)*(wpcurrent[1]-1)
     move(ser,"Vert","Towards",(vstep+1100))
     move(ser,"Horz","Towards",(hstep))
 
-    
-def test(ser):
     homeandwaste(ser)
     wastetowell(ser,[6,8])
     currenttowaste(ser,[6,8])
     wastetowell(ser,[2,3])
     currenttowaste(ser,[2,3])
 
-test(serconnect())
-
-def nextwell(ser):  
+def nextwellold(ser):  
     #Total well step length 5300H 3400V - NUNC 12x8 well plate
     #Ordered pathway - Rows - columns 
     rows = 8

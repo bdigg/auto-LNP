@@ -25,14 +25,14 @@ if Mode == "Composition":
     FRR_range = range(1,10+1,1) #[min,max,increment]
 
     #Channel 1 - Buffer 
-    Buffer = [True, range(180,180+1,20)]
+    Buffer = ["Buffer_Name",True, range(180,180+1,20)]
 
     #Channel 2 - Lipid 1 in ethanol
-    #Lp1=[Active?,Name, MW, Range , Concentration]  
+    #Lp1=[Name, MW, Range , Concentration]  
     Lp1 = ["Lipid1_Name", 100, "Base",  10]  
 
     #Channel 3 - Lipid 2 in ethanol - if not active, set range to 0
-    #Lp2= [Active?,Name, MW, Range , Concentration]  
+    #Lp2= [Name, MW, Range , Concentration]  
     Lp2 = ["Lipid2_Name", 50, range(0,(10+1),5), 5]  
 
     #Channel 4 - Lipid 3 in ethanol - if not active, set range to 0
@@ -66,32 +66,26 @@ fail_repeats = 1 #If FR falls out of range, how many repeats
 
 #PI Controller Parameters
 period = 0.2
-K_p = [0.02,0.02] #Tune the proportioal component 0.018
+K_p = [0.04,0.016] #Tune the proportioal component 0.018
 K_i = 0.0001 #Tune the integral component  0.0005
 p_incr = [-20,20] #min,max
 p_range = [0,200] #min,max
 
 #Experiment timings
 max_equilibration_t = 300 #Maximum time to reach FR equilibrium
-eq_duration = 5 #Time over which the FR must be stable
-
-
+eq_duration = 1 #Time over which the FR must be stable
 
 #Autocollect Configuration 
 autocollect = True
 wpdim = [8,12] #row col
 wpcurrent = [1,1] #set this as the first well to be used
 #add wp dimensions in mm etc for conversion
-
-
 #----------------------------------Initiation-----------------------------------
-error = 0 
-while error == 0:
-    if autocollect  == True:
-        print("oi")
-        global ser
-        ser = expel.serconnect()
-        threading.Thread(target=expel.homeandwaste,args=(ser)).start()
+if autocollect  == True:
+    global ser
+    ser = expel.serconnect()
+    expel.homeandfirst(ser)
+    #threading.Thread(target=expel.homeandwaste,args=(ser)).start()
     error = pump.pressure_init()
     error = pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
     #error = control.flush(active_chans,75,(1*30)) #pressure 
@@ -99,9 +93,7 @@ while error == 0:
     #control.flowtable(active_chans,)
     #K_p,K_i = control.auto_tune(active_chans,period)
     #---------------------------------Main Loop------------------------------------
-    main_loop = True
-
-    if main_loop == True:
-        control.main_PI(autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,standard_repeats,ser)
-
+main_loop = True
+if main_loop == True:
+    control.main_PI(exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,standard_repeats,ser)
     #--------------------------------Functions------------------------------------------

@@ -19,11 +19,12 @@ Lp3 = ["Lipid3_Name", 50, range(0,(10+1),5), 5]
 
 exp_params, flow_rate  = [],[]
 n = 0
+
 def flow_calc(FRR_range, Buffer, Lp1, Lp2, Lp3):
     Lp2_Lipid_Mr_Ratio = Lp1[1]/Lp2[1]
     Lp3_Lipid_Mr_Ratio = Lp1[1]/Lp3[1]
-    if Buffer[0] == True and Lp1[2] == "Base":
-        for buffer_FR_total in Buffer[1]: 
+    if Buffer[1] == True and Lp1[2] == "Base":
+        for buffer_FR_total in Buffer[2]: 
             for FRR_value in FRR_range:
                 lipid_FR_total = buffer_FR_total/FRR_value
                 for a in Lp2[2]:
@@ -36,7 +37,7 @@ def flow_calc(FRR_range, Buffer, Lp1, Lp2, Lp3):
                         Lp2_flow_rate = (Lp2_const/FR_const)*lipid_FR_total 
                         Lp3_flow_rate = (Lp3_const/FR_const)*lipid_FR_total 
                         totalFR = buffer_FR_total + lipid_FR_total
-                        exp_params.append([totalFR,FRR_value,100-a-b,a,b])
+                        exp_params.append([totalFR,FRR_value,100-a-b,a,b,Buffer[0],Lp1[0],Lp2[0],Lp3[0]])
                         flow_rate.append([buffer_FR_total,Lp1_flow_rate,Lp2_flow_rate,Lp3_flow_rate])
                         n=n+1
     return(exp_params,flow_rate)
