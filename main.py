@@ -24,20 +24,22 @@ if Mode == "Composition":
     #FRR
     FRR_range = range(1,10+1,1) #[min,max,increment]
 
+    expname = "DPPCLSCHOL"
+
     #Channel 1 - Buffer 
     Buffer = ["Buffer_Name",True, range(180,180+1,20)]
 
     #Channel 2 - Lipid 1 in ethanol
     #Lp1=[Name, MW, Range , Concentration]  
-    Lp1 = ["Lipid1_Name", 100, "Base",  10]  
+    Lp1 = ["DPPC", 100, "Base",  10]  
 
     #Channel 3 - Lipid 2 in ethanol - if not active, set range to 0
     #Lp2= [Name, MW, Range , Concentration]  
-    Lp2 = ["Lipid2_Name", 50, range(0,(10+1),5), 5]  
+    Lp2 = ["LysoPC", 50, range(0,(10+1),5), 5]  
 
     #Channel 4 - Lipid 3 in ethanol - if not active, set range to 0
     #Lp3= [Name, MW, Range , Concentration]  
-    Lp3 = ["Lipid3_Name", 50, range(0,(10+1),5), 5]   
+    Lp3 = ["Chol", 50, range(0,(10+1),5), 5]   
 
     exp_params,exp_FRs = calc.flow_calc(FRR_range,Buffer,Lp1,Lp2,Lp3)
     print(exp_FRs)
@@ -95,5 +97,5 @@ if autocollect  == True:
     #---------------------------------Main Loop------------------------------------
 main_loop = True
 if main_loop == True:
-    control.main_PI(exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,standard_repeats,ser)
+    control.main_PI(expname,exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,standard_repeats,ser)
     #--------------------------------Functions------------------------------------------
