@@ -36,75 +36,62 @@ def setdirection(ser,axis,direction):
         writestring = '<M'+str(direction)+'>' #M is defined to set motor 1 direction in Arduino
         bytestowrite = writestring.encode() #encodes the string to UTF-8
         ser.write(bytestowrite) # sending the data
-        b = ser.readline()
-        readstring = b.decode("utf-8")
 
     if axis == "Vert":
         expected_message = 'Turnt2'
         writestring = '<N'+str(direction)+'>' #M is defined to set motor 1 direction in Arduino
         bytestowrite = writestring.encode() #encodes the string to UTF-8
         ser.write(bytestowrite) # sending the data
-        b = ser.readline()
-        readstring = b.decode("utf-8")
 
-def setstep(ser,axis,steps):
-    if axis == "Horz":
-        writestring = '<L'+str(steps)+'>'
-        bytestowrite = writestring.encode() #encodes the string to UTF-8
-        ser.write(bytestowrite) # sending the data
-        b = ser.readline()
-        readstring = b.decode("utf-8")
+def setstep(ser,stepsH,stepsV):
+    writestring = "<B" + str(stepsH) + "," + str(stepsV) + ">"
+    bytestowrite = writestring.encode()  # encodes the string to UTF-8
+    ser.write(bytestowrite)  # sending the data
+    b = ser.readline()
+    readstring = b.decode("utf-8")
 
-
-    if axis == "Vert":
-        writestring = "<P" + str(steps) + ">"
-        bytestowrite = writestring.encode()  # encodes the string to UTF-8
-        ser.write(bytestowrite)  # sending the data
-        b = ser.readline()
-        readstring = b.decode("utf-8")
-
-def move(ser,axis, direction, step):
-    setdirection(ser,axis, direction)
-    setstep(ser,axis, step)
+def move(ser,dirH,dirV,stepsH,stepsV):
+    setdirection(ser,"Vert", dirV)
+    setdirection(ser,"Horz", dirH)
+    setstep(ser,stepsH,stepsV)
 
 def home(ser):
     #Home Axes
-    move(ser,"Vert","Away", 100)
-    move(ser,"Horz","Away", 100)
+    move(ser,"Away","Away", 100, 100)
     writestring = '<H>' #M is defined to set motor 1 direction in Arduino
     bytestowrite = writestring.encode() #encodes the string to UTF-8
     ser.write(bytestowrite) # sending the data
     b = ser.readline()
     readstring = b.decode("utf-8")
     #print(readstring)
+    setdirection(ser,"Vert","Away")
+    setdirection(ser,"Horz","Away")
 
 def homeandfirst(ser):
     print("To home and first well")
     home(ser)
-    move(ser,"Vert","Away", 5000)
-    move(ser,"Horz","Away", 5000)
-
+    setstep(ser,1650,800)
 
 
 def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the current lel
-    vstep = 3350/(7)*(wpcurrent[0]-wpprev[0])
-    hstep = 5275/(11)*(wpcurrent[1]-wpprev[1])
+    vstep = 1675/(7)*(wpcurrent[0]-wpprev[0])
+    hstep = 2637.5/(11)*(wpcurrent[1]-wpprev[1])
     print(vstep,hstep)
     if vstep > 0:
-        move(ser,"Vert","Away",(vstep))
-    elif vstep < 0:
-        move(ser,"Vert","Towards",(vstep)) 
+        dirV = "Away"
+    else:
+        dirV = "Towards"
     if hstep > 0:
-        move(ser,"Horz","Away",(hstep))
-    elif hstep < 0:
-        move(ser,"Horz","Towards",(hstep))
+        dirH = "Away"
+    else:
+        dirH = "Towards"    
+    move(ser,dirH,dirV,hstep,vstep)
 
 
 def currenttowait(ser,wpcurrent):
     vstep = 3350/(7)*(wpcurrent[0]-1)
     hstep = 5275/(11)*(wpcurrent[1]-1)
-    move(ser,"Vert","Towards",(vstep+1100))
-    move(ser,"Horz","Towards",(hstep))
+    move(ser,"Towards","Towards",hstep,vstep+1100)
 
     homeandwaste(ser)
     wastetowell(ser,[6,8])
@@ -126,3 +113,14 @@ def nextwellold(ser):
         move(ser,"Horz","Towards",5275)
         move(ser,"Vert","Away",vstep)
     move(ser,"Vert","Towards",3350+hstep)
+
+def flowswitch(ser,state): #State is 0 or 1 
+    if state == 0:
+        writestring = '<F'+str(state)+'>' #M is defined to set motor 1 direction in Arduino
+        bytestowrite = writestring.encode() #encodes the string to UTF-8
+        ser.write(bytestowrite) # sending the data
+    elif state == 1:
+        writestring = '<F'+str(state)+'>' #M is defined to set motor 1 direction in Arduino
+        bytestowrite = writestring.encode() #encodes the string to UTF-8
+        ser.write(bytestowrite) # sending the data
+    

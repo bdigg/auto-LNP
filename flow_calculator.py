@@ -1,3 +1,5 @@
+import numpy as np
+
 #FRR
 FRR_range = range(1,10+1,1) #[min,max,increment]
 
@@ -20,7 +22,7 @@ Lp3 = ["Lipid3_Name", 50, range(0,(10+1),5), 5]
 exp_params, flow_rate  = [],[]
 n = 0
 
-def flow_calc(FRR_range, Buffer, Lp1, Lp2, Lp3):
+def flow_calc(FRR_range, Buffer, Lp1, Lp2, Lp3): #Use this for composition condition
     Lp2_Lipid_Mr_Ratio = Lp1[1]/Lp2[1]
     Lp3_Lipid_Mr_Ratio = Lp1[1]/Lp3[1]
     if Buffer[1] == True and Lp1[2] == "Base":
@@ -41,3 +43,11 @@ def flow_calc(FRR_range, Buffer, Lp1, Lp2, Lp3):
                         flow_rate.append([buffer_FR_total,Lp1_flow_rate,Lp2_flow_rate,Lp3_flow_rate])
                         n=n+1
     return(exp_params,flow_rate)
+
+def genparams(exp_FRs): #Use this for the Flow control condition
+    for flow in exp_FRs:
+        totalFR = np.sum(flow)
+        FRR_value = flow[0]/np.sum(flow[1:])
+
+    exp_params = [totalFR,FRR_value,"na","na","na","BufferX","Lipid1","Lipid2","Lipid3"]
+    return(exp_params)

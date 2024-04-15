@@ -24,6 +24,8 @@ if Mode == "Composition":
     #FRR
     FRR_range = range(1,10+1,1) #[min,max,increment]
 
+    #load compositions from doc  
+
     expname = "DPPCLSCHOL"
 
     #Channel 1 - Buffer 
@@ -45,22 +47,23 @@ if Mode == "Composition":
     print(exp_FRs)
 
 elif Mode == "Flow":
-    exp_FRs = [[50,40,0,0],[60,30,0,0],[70,20,0,0],[80,50,0,0],[100,40,0,0]]
-
+    expname = "FlowTest150424"
+    exp_FRs = [[50,50,50,50],[40,40,40,40],[60,60,60,60],[70,70,70,70],[80,80,80,80],[30,30,30,30]]
+    exp_params = calc.genparams(exp_FRs)
 
 #----------------------------------Controller Parameters-----------------------------------
 inst_name = '01EA53FD'
-active_chans = [1,2] #Set all active channels
+active_chans = [1,2,3,4] #Set all active channels
 #Sensor setup [Channel, Type (5-1000uL/min)(4-80uL/min) , Digital (1), Calibration (H20 -0), Pixel (7) ]
 sensor1 = [1,5,1,0]#[1,4,1,0]
 sensor2 = [2,5,1,0]  ##IMPORTANT Change calibration if using MFS3 sensor - control.py PID
-sensor3 = None#[3,4,1,0]
-sensor4 = None #[4,5,1,0]
+sensor3 = [3,5,1,0]
+sensor4 = [4,5,1,0]
 #Pressure calibrate
 pressure_calibrate = "default"
 
 #Flow rates of each input channel#
-volume = 20 #volume produced in micro litres
+volume = 500 #volume produced in micro litres
 
 #Repeats
 standard_repeats = 1 #How many tines should each composition be repeated
@@ -68,34 +71,36 @@ fail_repeats = 1 #If FR falls out of range, how many repeats
 
 #PI Controller Parameters
 period = 0.2
-K_p = [0.04,0.016] #Tune the proportioal component 0.018
+K_p = [0.03,0.008,0.008,0.008] #Tune the proportioal component 0.018 [0.04,0.01,0.01,0.01]
 K_i = 0.0001 #Tune the integral component  0.0005
 p_incr = [-20,20] #min,max
-p_range = [0,200] #min,max
+p_range = [0,400] #min,max
 
 #Experiment timings
-max_equilibration_t = 300 #Maximum time to reach FR equilibrium
-eq_duration = 1 #Time over which the FR must be stable
+max_equilibration_t = 120 #Maximum time to reach FR equilibrium
+eq_duration = 3 #Time over which the FR must be stable
 
 #Autocollect Configuration 
 autocollect = True
 wpdim = [8,12] #row col
 wpcurrent = [1,1] #set this as the first well to be used
+
+tubingdim = [0.51,30] #Tubing internal diam in mm, length after chip in cm
 #add wp dimensions in mm etc for conversion
 #----------------------------------Initiation-----------------------------------
+global ser
+ser = 0
 if autocollect  == True:
-    global ser
     ser = expel.serconnect()
-    expel.homeandfirst(ser)
-    #threading.Thread(target=expel.homeandwaste,args=(ser)).start()
-    error = pump.pressure_init()
-    error = pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
-    #error = control.flush(active_chans,75,(1*30)) #pressure 
-    #error = control.stability_test(active_chans,[20,40,80,100])
-    #control.flowtable(active_chans,)
-    #K_p,K_i = control.auto_tune(active_chans,period)
+    #expel.homeandfirst(ser)
+error = pump.pressure_init()
+error = pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
+error = control.flush(active_chans,40,(0.1*60)) #pressure 
+#error = control.stability_test(active_chans,[20,40,80,100])
+#control.flowtable(active_chans,)
+#K_p,K_i = control.auto_tune(active_chans,period)
     #---------------------------------Main Loop------------------------------------
 main_loop = True
 if main_loop == True:
-    control.main_PI(expname,exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,standard_repeats,ser)
+    control.main_PI(expname,exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,tubingdim,standard_repeats,ser)
     #--------------------------------Functions------------------------------------------

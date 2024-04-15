@@ -7,7 +7,9 @@ import numpy as np
 import threading
 import expel
 import pandas as pd
+import math
 from openpyxl import load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 from datetime import datetime
 
 
@@ -55,19 +57,24 @@ def stop():
     pump.set_pressure(3,0)
     pump.set_pressure(4,0)
 
+def expulsiontime(tubingdim,set_FR,active_channels):
+    diameter = math.pi()*(tubingdim[0]/2)**2
+    tubet = (diameter*(tubingdim[2]*10))/np.sum(set_FR)
+    return tubet
 
 
-def savetoexcel(exp_name,status,expparams,exp_FRs,start_t,wpindex,volume,fr_perc_error,repeat):
+def savetoexcel(exp_name,status,expparams,exp_FRs,wpindex,volume,fr_perc_error,repeat,eq_t):
     data = {
         'ExpName': [exp_name],
         'State': [status],
         'RepeatNum': [repeat],
         'Time': [datetime.now().strftime('%H:%M:%S')],
         'Date': [(datetime.today().strftime('%Y-%m-%d'))],
-        'WPIndex': [wpindex],
+        'WPIndex': [str(wpindex)],
         'FRR': [expparams[1]],  
         'TotalFR': [expparams[0]],  
         'Volume': [volume],
+        'Eq Time': [eq_t],
         'Buf-Name': [expparams[5]],
         'Buf-FR': [exp_FRs[0]],
         'Buf-FRer': [fr_perc_error[0]],
@@ -91,22 +98,33 @@ def savetoexcel(exp_name,status,expparams,exp_FRs,start_t,wpindex,volume,fr_perc
     # Excel file name
     excel_file = 'ExperimentLog.xlsx'
 
-    # Check if the Excel file already exists
     try:
-        with pd.ExcelWriter(excel_file, engine='openpyxl', mode='a') as writer:
-            writer.book = load_workbook(excel_file)
-            writer.sheets = {ws.title: ws for ws in writer.book.worksheets}
-            # Append DataFrame to the existing sheet
-            df.to_excel(writer, sheet_name='Sheet1', index=False, header=False, startrow=writer.sheets['Sheet1'].max_row)
+        # Load the existing workbook
+        book = load_workbook(excel_file)
+        
+        # Select the active sheet
+        sheet = book.active
+        
+        # Find the next available row
+        next_row = sheet.max_row + 1
+        
+        # Append DataFrame to the existing sheet
+        for r in dataframe_to_rows(df, index=False, header=False):
+            sheet.append(r)
+        
+        # Save the workbook
+        book.save(excel_file)
+        
+        print("Data appended to Excel successfully.")
+        
     except FileNotFoundError:
         # If the file doesn't exist, create a new Excel file and write the DataFrame
         df.to_excel(excel_file, index=False)
-
-    print("Data appended to Excel successfully.")
+    print("Data written to a new Excel file successfully.")
 
 #-----------------------------  
 
-def plotupdate(ax1,ax2,flow_data,active_channels,switch_list,col_list,set_FR,p_range,n,k,single):
+def plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,k,single):
     ax1.clear()
     ax2.clear()
     chancolours = ["lightseagreen","darkorange","darkred","blueviolet"]
@@ -115,15 +133,13 @@ def plotupdate(ax1,ax2,flow_data,active_channels,switch_list,col_list,set_FR,p_r
         ax2.plot(flow_data[0][n:],flow_data[3][i][n:],label="Channel %d" % chan,color=chancolours[i])
         if single == True:
             ax1.axhline(y=set_FR[i],color=chancolours[i],linewidth=0.5, alpha=0.5)
-    ax1.axvline(x=switch_list[k:],color='r',linestyle='--')
-    ax2.axvline(x=switch_list[k:],color='r',linestyle='--')
-    ax1.axvline(x=col_list[k:],color='k',linestyle=':')
-    ax2.axvline(x=col_list[k:],color='k',linestyle=':')                    
-    ax1.set_ylim(0, np.amax(set_FR)*1.1)
+    if col_list > 0:
+        ax1.axvline(x=col_list,color='k',linestyle=':')
+        ax2.axvline(x=col_list,color='k',linestyle=':')                    
+    ax1.set_ylim(0, np.amax(set_FR)*1.5)
     ax2.set_ylim(0,p_range[1])
     ax1.legend()
     ax2.legend()
-    plt.title('Flow')
     ax1.set_ylabel('flow [uL/min]')
     ax2.set_ylabel('pressure [mbar]')
     plt.xlabel('Time (s)')
@@ -132,13 +148,17 @@ def plotupdate(ax1,ax2,flow_data,active_channels,switch_list,col_list,set_FR,p_r
 
 #------------------
                   
-def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,eqb_max,eqb_min,wpdim,wpcurrent,standard_repeats,ser):
+def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,eqb_max,eqb_min,wpdim,wpcurrent,tubingdim,standard_repeats,ser):
     
     flow_data,n = [[],[[],[],[],[]],[[],[],[],[]],[[],[],[],[]]],0 #time,flow,realp,setp
 
     #create folder for saving images
-    path = './Flowplots' + expname
-    os.makedirs(path)
+    path = './Flowplots/' + expname
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print(f"Directory '{path}' created successfully.")
+    else:
+        print(f"Directory '{path}' already exists.")
 
     #Global PID variables
     pr_control, I = [0,0,0,0],[0,0,0,0]
@@ -148,36 +168,37 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
     ax2 = fig.add_subplot(2,1,2)
-    col_list,switch_list = [],[]
+    col_vol,col_action = [],[]
+    fr = [0,0,0,0]
 
     init_start_t = time.time()
+    timelast = time.time()
 
     #Iteration through each of the flow rates
-
-    for i, set_FR in enumerate(exp_FRs): 
+    for j, set_FR in enumerate(exp_FRs): 
 
         repeats = 0
-        exp_name = str(exp_params[0],"-",expname,exp_params[2],exp_params[2],exp_params[2])
+        col_list = 0
+        
+        exp_name = str(exp_params[1]) + "-" + expname + str(exp_params[2]) + str(exp_params[3]) + str(exp_params[4] )
+        print(exp_name)
         #caclulate experiment time based off the target volume
-        exp_t = (volume/np.sum(set_FR[0:(len(active_channels)-1)]))*60
+        exp_t = (volume*1.2/np.sum(set_FR[0:(len(active_channels)-1)]))*60
+
+        tubevol = ((math.pi)*(tubingdim[0]/2)**2)*(tubingdim[1]*10)
 
         while repeats < standard_repeats: #Gives the option to repeat a given flowrate condition
             
             print("Beginning experiment: ", set_FR)
             
             fr_perc_error, max_fr_error = [[0],[0],[0],[0]],[]
-            collection = False,False
+            collection,consistent_fr = False,False
+
 
             #Read inital time
             start_t = time.time() 
             last_t = start_t
             active_t = eqb_max           
-
-            #Move to the first well position is autocollect is on
-            if autocollect == True:  
-                print("Switch valve to waste")
-                threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
-                print("To next well!",wpprev,wpcurrent)
 
             while True:
                 #-----Main PID Loop-----
@@ -186,13 +207,13 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                 #Repeat for all active channels
                 for i, channel  in enumerate(active_channels):
                     #Flow rate reading
-                    fr = pump.get_sensor_data(channel)[0]
+                    fr[i] = pump.get_sensor_data(channel)[0]
                     if channel > 1: #If a lipid channel (in ethanol) make adjustment
-                        fr = (fr - 80.09)*4.05
-                    flow_data[1][i].append(fr)
+                        fr[i] = (fr[i] - 80.09)*4.05
+                    flow_data[1][i].append(fr[i])
 
                     #Calculate error
-                    fr_error = fr-set_FR[i]
+                    fr_error = fr[i]-set_FR[i]
                     fr_perc_error[i].append(abs(fr_error/set_FR[i]))
 
                     #Pressure reading
@@ -216,32 +237,75 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
 
                 if (time.time() - start_t) > eqb_min and collection == False:
                     if np.max(max_fr_error) < 0.05:
-                        print("Beginning Collection\n\n\n")
+                        print("FR condition reached \n\n\n")
                         #Move to well position
                         if autocollect == True:
-                            print("Switch valve to collection")
+                            
+                            adjvol = tubevol*1.1 - np.sum(col_vol)
+                            print(adjvol)
+                            col_vol.append(adjvol)
+                            col_action.append("Collect")
+                            print(volume)
+                            col_vol.append(volume)
+                            col_action.append("Next")
                         collection = True
-                        col_list.append((time.time() - init_start_t))
+                        col_list = time.time() - init_start_t
+                        eq_t = time.time() - start_t
                         active_t = exp_t + time.time() - start_t
                         fr_perc_error, max_fr_error = [[0],[0],[0],[0]],[]
                     max_fr_error = max_fr_error[1:] #Remove the first value 
-               
-                if np.max(max_fr_error) > 0.1 and collection == True:
+    
+                elif np.max(max_fr_error) > 0.1 and collection == True:
                     consistent_fr = False
                     print("Flow rate condition fail")
                         
                 if (time.time() - start_t) > active_t:
-                    break
+                    if j == len(set_FR)-1 and len(col_vol) > 0 and repeats == standard_repeats:
+                        None
+                    else:
+                        break
 
                 # Wait until desired period time
                 sleep_t = period - (time.time() - last_t)
                 if sleep_t > 0:
                     time.sleep( sleep_t )
+                period_t = (time.time() - last_t)
                 last_t = time.time() # And update the last time 
                 
                 #Updating Figure
-                plotupdate(ax1,ax2,flow_data,active_channels,switch_list,col_list,set_FR,p_range,n,-1,True)    
-                    
+                plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,-1,True)    
+
+                #collection state 
+                if autocollect == True and len(col_vol) > 0:
+                    expeledvol = np.sum(fr)*(period_t/60)
+                    col_vol[0] = col_vol[0] - expeledvol
+                    print(col_vol)
+                    if col_vol[0] < 0:
+                        overshoot = col_vol[0]
+                        col_vol = col_vol[1:] #remove the first value
+                        if len(col_vol) > 0:
+                            col_vol[0] = (col_vol[0] + overshoot)
+                        if col_action[0] == "Collect":
+                            expel.flowswitch(ser,1)
+                            print("Collecting")
+                            col_action = col_action[1:]
+                        elif col_action[0] == "Next":
+                            expel.flowswitch(ser,0) 
+                            print("Disposing")
+
+                            #Move to coord for collection
+                            col_action = col_action[1:]
+                            wpprev = [wpcurrent[0],wpcurrent[1]]
+                            if wpcurrent[1] == wpdim[1]:
+                                wpcurrent[1] = 1
+                                wpcurrent[0] = wpcurrent[0] + 1
+                            else:
+                                wpcurrent[1] = wpcurrent[1] + 1
+
+                            threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
+                            #Move to new coordinate 
+                            print("Current plate position: ",wpcurrent)
+
             if collection == False:
                 status = "Failed to Eq"
                 print("Equilibration Failed - FR percentage error", np.max(max_fr_error))
@@ -257,21 +321,15 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
             repeats+= 1
 
             n = len(flow_data[0])-1
-            savetoexcel(exp_name,status,exp_params,exp_FRs,start_t,wpcurrent,volume,fr_perc_error,standard_repeats)
+            ch_fr_error = [np.max(fr_perc_error[0]),np.max(fr_perc_error[1]),np.max(fr_perc_error[2]),np.max(fr_perc_error[3])]
+            savetoexcel(exp_name,status,exp_params,set_FR,wpcurrent,volume,ch_fr_error,standard_repeats,eq_t)
             plt.savefig(path+exp_name+".png")
             #save wp positions with exp info
-            if autocollect == True:
-                wpprev = [wpcurrent[0],wpcurrent[1]]
-                if wpcurrent[1] == wpdim[1]:
-                    wpcurrent[1] = 1
-                    wpcurrent[0] = wpcurrent[0] + 1
-                else:
-                    wpcurrent[1] = wpcurrent[1] + 1
-                print("Current plate position: ",wpcurrent)
+            
     stop() 
-    plotupdate(ax1,ax2,flow_data,active_channels,switch_list,col_list,exp_FRs,p_range,0,0,False)    
+    plotupdate(ax1,ax2,flow_data,active_channels,col_list,exp_FRs,p_range,0,0,False)    
     plt.show()
-    plt.savefig(path+expname+".png")
+    plt.savefig(path+expname+"/.png")
 
     return()
     
