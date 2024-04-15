@@ -168,11 +168,13 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
     fig = plt.figure()
     ax1 = fig.add_subplot(2,1,1)
     ax2 = fig.add_subplot(2,1,2)
-    col_vol,col_action = [],[]
     fr = [0,0,0,0]
 
     init_start_t = time.time()
     timelast = time.time()
+
+    moved = True
+
 
     #Iteration through each of the flow rates
     for j, set_FR in enumerate(exp_FRs): 
@@ -185,7 +187,7 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
         #caclulate experiment time based off the target volume
         exp_t = (volume*1.2/np.sum(set_FR[0:(len(active_channels)-1)]))*60
 
-        tubevol = ((math.pi)*(tubingdim[0]/2)**2)*(tubingdim[1]*10)
+        #tubevol = ((math.pi)*(tubingdim[0]/2)**2)*(tubingdim[1]*10)
 
         while repeats < standard_repeats: #Gives the option to repeat a given flowrate condition
             
@@ -193,7 +195,13 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
             
             fr_perc_error, max_fr_error = [[0],[0],[0],[0]],[]
             collection,consistent_fr = False,False
-
+            
+            wpprev = [wpcurrent[0],wpcurrent[1]]
+            if wpcurrent[1] == wpdim[1]:
+                wpcurrent[1] = 1
+                wpcurrent[0] = wpcurrent[0] + 1
+            else:
+                wpcurrent[1] = wpcurrent[1] + 1
 
             #Read inital time
             start_t = time.time() 
@@ -236,18 +244,18 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                 max_fr_error.append(np.max([errors[-1] for errors in fr_perc_error]))
 
                 if (time.time() - start_t) > eqb_min and collection == False:
+                    if moved == False:
+                         #Move to coord for collection
+                        #Move to new coordinate 
+                        threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
+                        print("Current plate position: ",wpcurrent)
+                        moved = True
+
                     if np.max(max_fr_error) < 0.05:
                         print("FR condition reached \n\n\n")
                         #Move to well position
                         if autocollect == True:
-                            
-                            adjvol = tubevol*1.1 - np.sum(col_vol)
-                            print(adjvol)
-                            col_vol.append(adjvol)
-                            col_action.append("Collect")
-                            print(volume)
-                            col_vol.append(volume)
-                            col_action.append("Next")
+                            expel.flowswitch(ser,1)
                         collection = True
                         col_list = time.time() - init_start_t
                         eq_t = time.time() - start_t
@@ -260,54 +268,22 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                     print("Flow rate condition fail")
                         
                 if (time.time() - start_t) > active_t:
-                    if j == len(set_FR)-1 and len(col_vol) > 0 and repeats == standard_repeats:
-                        None
-                    else:
-                        break
+                    expel.flowswitch(ser,0)
+                    break
+
 
                 # Wait until desired period time
                 sleep_t = period - (time.time() - last_t)
                 if sleep_t > 0:
                     time.sleep( sleep_t )
-                period_t = (time.time() - last_t)
                 last_t = time.time() # And update the last time 
                 
                 #Updating Figure
                 plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,-1,True)    
 
-                #collection state 
-                if autocollect == True and len(col_vol) > 0:
-                    expeledvol = np.sum(fr)*(period_t/60)
-                    col_vol[0] = col_vol[0] - expeledvol
-                    print(col_vol)
-                    if col_vol[0] < 0:
-                        overshoot = col_vol[0]
-                        col_vol = col_vol[1:] #remove the first value
-                        if len(col_vol) > 0:
-                            col_vol[0] = (col_vol[0] + overshoot)
-                        if col_action[0] == "Collect":
-                            expel.flowswitch(ser,1)
-                            print("Collecting")
-                            col_action = col_action[1:]
-                        elif col_action[0] == "Next":
-                            expel.flowswitch(ser,0) 
-                            print("Disposing")
-
-                            #Move to coord for collection
-                            col_action = col_action[1:]
-                            wpprev = [wpcurrent[0],wpcurrent[1]]
-                            if wpcurrent[1] == wpdim[1]:
-                                wpcurrent[1] = 1
-                                wpcurrent[0] = wpcurrent[0] + 1
-                            else:
-                                wpcurrent[1] = wpcurrent[1] + 1
-
-                            threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
-                            #Move to new coordinate 
-                            print("Current plate position: ",wpcurrent)
-
             if collection == False:
                 status = "Failed to Eq"
+                eq_t = 0
                 print("Equilibration Failed - FR percentage error", np.max(max_fr_error))
             else:
                 if consistent_fr == True: 
@@ -325,6 +301,7 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
             savetoexcel(exp_name,status,exp_params,set_FR,wpcurrent,volume,ch_fr_error,standard_repeats,eq_t)
             plt.savefig(path+exp_name+".png")
             #save wp positions with exp info
+            moved = False
             
     stop() 
     plotupdate(ax1,ax2,flow_data,active_channels,col_list,exp_FRs,p_range,0,0,False)    
