@@ -71,9 +71,9 @@ fail_repeats = 1 #If FR falls out of range, how many repeats
 
 #PI Controller Parameters
 period = 0.2
-K_p = [0.04,0.0075,0.0075,0.0075] #Tune the proportioal component 0.018 [0.04,0.01,0.01,0.01]
+K_p = [0.02,0.01,0.01,0.01] #Tune the proportional component 0.018 [0.04,0.01,0.01,0.01]
 K_i = 0.00001 #Tune the integral component  0.0005
-p_incr = [-30,30] #min,max
+p_incr = [-50,50] #min,max
 p_range = [0,400] #min,max
 
 #Experiment timings
@@ -92,10 +92,10 @@ global ser
 ser = 0
 if autocollect  == True:
     ser = expel.serconnect()
-    expel.homeandfirst(ser)
+    #expel.homeandfirst(ser)
 error = pump.pressure_init()
 error = pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
-error = control.flush(active_chans,40,(0.5*60)) #pressure 
+error = control.flush(active_chans,80,(0.1*60)) #pressure 
 #error = control.stability_test(active_chans,[20,40,80,100])
 #control.flowtable(active_chans,)
 #K_p,K_i = control.auto_tune(active_chans,period)

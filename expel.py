@@ -48,7 +48,6 @@ def setstep(ser,stepsH,stepsV):
     bytestowrite = writestring.encode()  # encodes the string to UTF-8
     ser.write(bytestowrite)  # sending the data
     b = ser.readline()
-    readstring = b.decode("utf-8")
 
 def move(ser,dirH,dirV,stepsH,stepsV):
     setdirection(ser,"Vert", dirV)
@@ -70,7 +69,7 @@ def home(ser):
 def homeandfirst(ser):
     print("To home and first well")
     home(ser)
-    setstep(ser,1650,800)
+    setstep(ser,1475,750)
 
 
 def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the current lel
@@ -87,17 +86,6 @@ def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the curren
         dirH = "Towards"    
     move(ser,dirH,dirV,hstep,vstep)
 
-
-def currenttowait(ser,wpcurrent):
-    vstep = 3350/(7)*(wpcurrent[0]-1)
-    hstep = 5275/(11)*(wpcurrent[1]-1)
-    move(ser,"Towards","Towards",hstep,vstep+1100)
-
-    homeandwaste(ser)
-    wastetowell(ser,[6,8])
-    currenttowaste(ser,[6,8])
-    wastetowell(ser,[2,3])
-    currenttowaste(ser,[2,3])
 
 def nextwellold(ser):  
     #Total well step length 5300H 3400V - NUNC 12x8 well plate

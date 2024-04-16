@@ -193,8 +193,8 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
             
             print("Beginning experiment: ", set_FR)
             
-            fr_perc_error, max_fr_error = [[0],[0],[0],[0]],[]
-            collection,consistent_fr = False,False
+            fr_perc_error, max_fr_error, error_prev = [[0],[0],[0],[0]],[],[0,0,0,0]
+            collection,consistent_fr = False,True
             
             wpprev = [wpcurrent[0],wpcurrent[1]]
             if wpcurrent[1] == wpdim[1]:
@@ -224,22 +224,33 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                     fr_error = fr[i]-set_FR[i]
                     fr_perc_error[i].append(abs(fr_error/set_FR[i]))
 
+                    if error_prev[i]*fr_error < 0 and len(flow_data[3][i]) > 2:
+                        #Perform linear interpolation
+                        pr_control[i] = flow_data[3][i][-2] + (((flow_data[3][i][-1]-flow_data[3][i][-2])/(error_prev[i]-fr_error))*(0-fr_error))
+                        flow_data[3][i].append(pr_control[i])
+                        print(flow_data[3][i][-2],flow_data[3][i][-1],error_prev[i],fr_error,pr_control[i])
+                    else:
+                        #Correction calculations
+                        I[i] = I[i] + K_i*fr_error*(period)
+                        adjustment =  (fr_error*abs(fr_error))*K_p[i] + I[i] #squared (fr_error*abs(fr_error))*K_p[i] + I[i]
+
+                        #Set limits
+                        adjustment = np.clip(adjustment, p_incr[0], p_incr[1])
+                        pr_control[i] = pr_control[i] - adjustment 
+                        pr_control[i] = np.clip(pr_control[i], p_range[0], p_range[1])
+                        flow_data[3][i].append(pr_control[i])
+
                     #Pressure reading
                     pr = pump.get_pressure_data(channel)[0]  
                     flow_data[2][i].append(pr)
 
-                    #Correction calculations
-                    I[i] = I[i] + K_i*fr_error*(period)
-                    adjustment =  (fr_error*abs(fr_error))*K_p[i] + I[i]
 
-                    #Set limits
-                    adjustment = np.clip(adjustment, p_incr[0], p_incr[1])
-                    pr_control[i] = pr_control[i] - adjustment 
-                    pr_control[i] = np.clip(pr_control[i], p_range[0], p_range[1])
-                    flow_data[3][i].append(pr_control[i])
 
                     #Set new pressure
                     pump.set_pressure(channel,pr_control[i]) 
+                    #time.sleep(0.05)
+
+                    error_prev[i] = fr_error
                  
                 max_fr_error.append(np.max([errors[-1] for errors in fr_perc_error]))
 
@@ -265,7 +276,6 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
     
                 elif np.max(max_fr_error) > 0.1 and collection == True:
                     consistent_fr = False
-                    print("Flow rate condition fail")
                         
                 if (time.time() - start_t) > active_t:
                     expel.flowswitch(ser,0)
@@ -299,14 +309,14 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
             n = len(flow_data[0])-1
             ch_fr_error = [np.max(fr_perc_error[0]),np.max(fr_perc_error[1]),np.max(fr_perc_error[2]),np.max(fr_perc_error[3])]
             savetoexcel(exp_name,status,exp_params,set_FR,wpcurrent,volume,ch_fr_error,standard_repeats,eq_t)
-            plt.savefig(path+exp_name+".png")
+            plt.savefig(path+"/"+exp_name+".png")
             #save wp positions with exp info
             moved = False
             
     stop() 
     plotupdate(ax1,ax2,flow_data,active_channels,col_list,exp_FRs,p_range,0,0,False)    
     plt.show()
-    plt.savefig(path+expname+"/.png")
+    plt.savefig(path+"/"+exp_name+".png")
 
     return()
     
