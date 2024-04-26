@@ -23,7 +23,7 @@ def sensor_init():
     error=OB1_Add_Sens(Instr_ID, 1, 10, 0, 0, 7, 0)
     print('error add digit flow sensor:%d' % error)
 
-def pressure_calib(answer):
+def c:
     Calib = (c_double*1000)() # Always define array this way, calibration should have 1000 elements
     while True:
         Calib_path = 'C:\\Users\\Public\\Desktop\\Calibration\\Calib.txt'

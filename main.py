@@ -47,8 +47,10 @@ if Mode == "Composition":
     print(exp_FRs)
 
 elif Mode == "Flow":
-    expname = "FlowTest150424"
-    exp_FRs = [[50,50,50,50],[40,40,40,40],[60,60,60,60],[70,70,70,70],[80,80,80,80],[30,30,30,30]]
+    expname = "Newsetuptest"
+    exp_FRs = [[40,40,40,40],[40,40,40,40],[40,40,40,40],[40,40,40,40]]
+    
+
     exp_params = calc.genparams(exp_FRs)
 
 #----------------------------------Controller Parameters-----------------------------------
@@ -63,22 +65,26 @@ sensor4 = [4,5,1,0]
 pressure_calibrate = "default"
 
 #Flow rates of each input channel#
-volume = 50 #volume produced in micro litres
+volume = 75 #volume produced in micro litres
 
 #Repeats
-standard_repeats = 1 #How many tines should each composition be repeated
+standard_repeats = 12 #How many tines should each composition be repeated
 fail_repeats = 1 #If FR falls out of range, how many repeats 
 
 #PI Controller Parameters
 period = 0.2
-K_p = [0.02,0.01,0.01,0.01] #Tune the proportional component 0.018 [0.04,0.01,0.01,0.01]
+K_p = [0.01,0.008,0.008,0.008] #Tune the proportional component 0.018 [0.02,0.01,0.01,0.01]#[0.04,0.008,0.008,0.008]
 K_i = 0.00001 #Tune the integral component  0.0005
-p_incr = [-50,50] #min,max
-p_range = [0,400] #min,max
+p_incr = [-10,10] #min,max
+p_range = [-100,300] #min,max
 
 #Experiment timings
 max_equilibration_t = 120 #Maximum time to reach FR equilibrium
-eq_duration = 5 #Time over which the FR must be stable
+eq_duration = 3 #Time over which the FR must be stable
+
+#Equilibrium Conditions
+Eqpercerror = 5
+Expelpercerror = 10
 
 #Autocollect Configuration 
 autocollect = True
@@ -92,15 +98,17 @@ global ser
 ser = 0
 if autocollect  == True:
     ser = expel.serconnect()
+    expel.servoswitch(ser,0)
     #expel.homeandfirst(ser)
 error = pump.pressure_init()
+calibarr,error = pump.pressure_calib("default")
 error = pump.sensor_init(sensor1, sensor2, sensor3, sensor4)
-error = control.flush(active_chans,80,(0.1*60)) #pressure 
-#error = control.stability_test(active_chans,[20,40,80,100])
+error = control.flush(active_chans,100,(0.1*60),calibarr) #pressure 
+#error = control.stability_test(active_chans,[20,40,80,100],calibarr)
 #control.flowtable(active_chans,)
 #K_p,K_i = control.auto_tune(active_chans,period)
     #---------------------------------Main Loop------------------------------------
 main_loop = True
 if main_loop == True:
-    control.main_PI(expname,exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,tubingdim,standard_repeats,ser)
+    control.main_PI(expname,exp_params,autocollect,active_chans,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,max_equilibration_t,eq_duration,wpdim,wpcurrent,tubingdim,standard_repeats,ser,calibarr)
     #--------------------------------Functions------------------------------------------

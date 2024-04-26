@@ -69,7 +69,7 @@ def home(ser):
 def homeandfirst(ser):
     print("To home and first well")
     home(ser)
-    setstep(ser,1475,750)
+    setstep(ser,675,1925)
 
 
 def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the current lel
@@ -92,15 +92,15 @@ def nextwellold(ser):
     #Ordered pathway - Rows - columns 
     rows = 8
     cols = 12
-    hstep = 5275/(cols-1)
-    vstep = 3350/(rows-1)
+    hstep = 2637.5/(cols-1)
+    vstep = 1675/(rows-1)
     for i in range(0,rows):
         for j in range(0,cols-1):
-            move(ser,"Horz","Away",hstep)
-            time.sleep(3)
-        move(ser,"Horz","Towards",5275)
-        move(ser,"Vert","Away",vstep)
-    move(ser,"Vert","Towards",3350+hstep)
+            move(ser,"Away","Towards",hstep,0)
+            time.sleep(0.5)
+        move(ser,"Towards","Towards",2637.5,0)
+        move(ser,"Towards","Away",0,vstep)
+    move(ser,"Away","Towards",0,1675+hstep)
 
 def flowswitch(ser,state): #State is 0 or 1 
     if state == 0:
@@ -111,4 +111,10 @@ def flowswitch(ser,state): #State is 0 or 1
         writestring = '<F'+str(state)+'>' #M is defined to set motor 1 direction in Arduino
         bytestowrite = writestring.encode() #encodes the string to UTF-8
         ser.write(bytestowrite) # sending the data
+
+def servoswitch(ser,state): #State is 0 or 1 
+        writestring = '<S'+str(state)+'>' #M is defined to set motor 1 direction in Arduino
+        bytestowrite = writestring.encode() #encodes the string to UTF-8
+        ser.write(bytestowrite) # sending the data
+
     
