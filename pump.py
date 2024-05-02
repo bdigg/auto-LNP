@@ -8,6 +8,8 @@ from array import array
 from Elveflow64 import *
 Instr_ID = c_int32()
 import numpy as np
+import ctypes as ct
+
 
 # Input the setup type
 def pressure_init():
@@ -45,6 +47,7 @@ def pressure_calib(answer):
             array = np.load("C:/Users/bdigg/OneDrive/Documents/GitHub/auto-LNP/auto-LNP/calib.npy")
             array.ctypes.data
             calibarr = array.ctypes.data_as(ct.POINTER(ct.c_double*1000))
+            error = 0
             break
         if answer == 'new':
             OB1_Calib (Instr_ID.value, Calib, 1000)
@@ -52,11 +55,6 @@ def pressure_calib(answer):
             print('Calib saved in calib.npy')
             break
     return calibarr,error
-
-import ctypes as ct
-array = np.load("C:/Users/bdigg/OneDrive/Documents/GitHub/auto-LNP/auto-LNP/calib.npy")
-array.ctypes.data
-calibar = array.ctypes.data_as(ct.POINTER(ct.c_double*1000))
 
 def set_pressure(set_channel,set_pressure,calibarr):
     set_channel=int(set_channel) # convert to int

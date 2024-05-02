@@ -69,7 +69,7 @@ def home(ser):
 def homeandfirst(ser):
     print("To home and first well")
     home(ser)
-    setstep(ser,675,1925)
+    setstep(ser,700,1880)
 
 
 def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the current lel

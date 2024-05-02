@@ -167,7 +167,7 @@ def plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,k,sin
     if col_list > 0:
         ax1.axvline(x=col_list,color='k',linestyle=':')
         ax2.axvline(x=col_list,color='k',linestyle=':')                    
-    ax1.set_ylim(0, 200) #np.amax(set_FR)*1.5
+    ax1.set_ylim(0, np.amax(set_FR)*1.5) #np.amax(set_FR)*1.5
     ax2.set_ylim(p_range[0],p_range[1])
     ax1.legend()
     ax2.legend()
@@ -179,7 +179,7 @@ def plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,k,sin
 
 #------------------
                   
-def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,eqb_max,eqb_min,wpdim,wpcurrent,tubingdim,standard_repeats,ser,calibarr):
+def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,eqb_max,eqb_min,wpdim,wpcurrent,standard_repeats,ser,calibarr):
     
     #Global variables
     flow_data,n,fdataall = [[],[[],[],[],[]],[[],[],[],[]],[[],[],[],[]]],0,[] #time,flow,realp,setp
@@ -202,12 +202,12 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
 
     #Iteration through each of the flow rates
     for j, set_FR in enumerate(exp_FRs): 
-
+        
         FRR = set_FR[0]/np.sum(set_FR[1:])
-
+        
         repeats = 0
         col_list = 0
-        
+
         #exp_name = str(round(exp_params[1],1)) + "-" + expname + str(exp_params[2]) + str(exp_params[3]) + str(exp_params[4] )
         exp_name = str(round(FRR,1)) + "-" + expname + "-" + str(set_FR[0]) + str(set_FR[1]) + str(set_FR[2]) + str(set_FR[3] )
         print(exp_name)
@@ -238,41 +238,42 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                     fr[i] = pump.get_sensor_data(channel)[0]
                     if channel > 1: #If a lipid channel (in ethanol) make adjustment
                         fr[i] = (fr[i]*4.05) - 80.09
+                    
                     flow_data[1][i].append(fr[i])
                     #Calculate error
                     fr_error = fr[i]-set_FR[i]
                     fr_perc_error[i].append(abs(fr_error/set_FR[i]))
 
                     if error_prev[i]*fr_error < 0 and len(flow_data[2][i]) > 2:
-                        #Perform linear interpolation
-                        pr_control[i] = flow_data[2][i][-2] + (((flow_data[2][i][-1]-flow_data[2][i][-2])/(error_prev[i]-fr_error))*(0-fr_error))
+                       #Perform linear interpolation
+                        pr_control[i] = flow_data[2][i][-2] + (((flow_data[2][i][-1]-flow_data[2][i][-2])/(fr_error-error_prev[i]))*(0-error_prev[i]))
+                        pr_control[i] = np.clip(pr_control[i], p_range[0], p_range[1])
                         flow_data[2][i].append(pr_control[i])
                     else:
                         #Correction calculations
                         I[i] = I[i] + K_i*fr_error*(period)
-                        adjustment =  (fr_error*abs(fr_error))*K_p[i] + I[i] #squared (fr_error*abs(fr_error))*K_p[i] + I[i]
-
+                        adjustment =  (fr_error*abs(fr_error))*K_p[i] + I[i]
                         #Set limits
                         adjustment = np.clip(adjustment, p_incr[0], p_incr[1])
                         pr_control[i] = pr_control[i] - adjustment 
                         pr_control[i] = np.clip(pr_control[i], p_range[0], p_range[1])
                         flow_data[2][i].append(pr_control[i])
-                    
-
-                    pump.set_pressure(channel,pr_control[i],calibarr) 
-                    #time.sleep(0.05)
+                    #Set pressure
+                    pump.set_pressure(channel,pr_control[i],calibarr)  
                     flow_data[3][i].append(pump.get_pressure_data(channel,calibarr)[0])
-
                     error_prev[i] = fr_error
                  
+                print("1:",fr[0],"2:",fr[1],"3:",fr[2],"4:",fr[3])
                 max_fr_error.append(np.max([errors[-1] for errors in fr_perc_error]))
 
                 if (time.time() - start_t) > eqb_min and collection == False:
-                    if np.max(max_fr_error) < 0.05:
+                    if np.max(max_fr_error)*set_FR[i] < 1:
                         print("FR condition reached \n\n\n")
                         #Move to well position
                         if autocollect == True:
                             expel.servoswitch(ser,1) #to collect mode
+                        K_p = K_p/100
+                        K_i = K_i/200
                         collection = True
                         col_list = time.time() - init_start_t
                         eq_t = time.time() - start_t
@@ -281,7 +282,7 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                         fr_perc_error, max_fr_error = [[0],[0],[0],[0]],[]
                     max_fr_error = max_fr_error[1:] #Remove the first value 
     
-                elif np.max(max_fr_error) > 0.1 and collection == True:
+                elif np.max(max_fr_error) > 0.05 and collection == True:
                     consistent_fr = False
                         
                 if (time.time() - start_t) > active_t:
@@ -312,7 +313,7 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                 else:
                     status = "Failed"
                     print("Collection Unsuccessful - FR percentage error", np.max(max_fr_error)) 
-                    repeats += -1
+                    #repeats += -1
             
             repeats+= 1
 
@@ -333,9 +334,14 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
             threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
             print("Current plate position: ",wpcurrent)
 
+            K_p = K_p*100
+            K_i = K_i*200
+
             print(repeats,standard_repeats)
             
-    stop() 
+    stop(calibarr) 
+    expel.setdirection(ser,"Vert","Away")
+    expel.setstep(ser,0,2000)
     plotupdate(ax1,ax2,flow_data,active_channels,col_list,exp_FRs,p_range,0,0,False)    
     plt.savefig(path+"/"+expname+"all"+".png")
     plt.show()
