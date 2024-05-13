@@ -48,6 +48,5 @@ def genparams(exp_FRs): #Use this for the Flow control condition
     for flow in exp_FRs:
         totalFR = np.sum(flow)
         FRR_value = flow[0]/np.sum(flow[1:])
-
     exp_params = [totalFR,FRR_value,"na","na","na","BufferX","Lipid1","Lipid2","Lipid3"]
     return(exp_params)

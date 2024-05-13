@@ -69,7 +69,7 @@ def home(ser):
 def homeandfirst(ser):
     print("To home and first well")
     home(ser)
-    setstep(ser,700,1880)
+    setstep(ser,750,1880)
 
 
 def nextwell(ser,wpprev,wpcurrent): #current is the next one, prev is the current lel
@@ -117,4 +117,15 @@ def servoswitch(ser,state): #State is 0 or 1
         bytestowrite = writestring.encode() #encodes the string to UTF-8
         ser.write(bytestowrite) # sending the data
 
+def initialise(autocollect,autohome,wpcurrent):
+    if autocollect == True:
+        ser = serconnect()
+        servoswitch(ser,0)
+        if autohome == True:
+            homeandfirst(ser)
+            nextwell(ser, [1,1], wpcurrent)
+            time.sleep(50)
+    else:
+        ser = 0
+    return ser
     

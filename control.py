@@ -167,7 +167,7 @@ def plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,k,sin
     if col_list > 0:
         ax1.axvline(x=col_list,color='k',linestyle=':')
         ax2.axvline(x=col_list,color='k',linestyle=':')                    
-    ax1.set_ylim(0, np.amax(set_FR)*1.5) #np.amax(set_FR)*1.5
+    ax1.set_ylim(-5, np.amax(set_FR)*1.5) #np.amax(set_FR)*1.5
     ax2.set_ylim(p_range[0],p_range[1])
     ax1.legend()
     ax2.legend()
@@ -179,19 +179,18 @@ def plotupdate(ax1,ax2,flow_data,active_channels,col_list,set_FR,p_range,n,k,sin
 
 #------------------
                   
-def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,eqb_max,eqb_min,wpdim,wpcurrent,standard_repeats,ser,calibarr):
+def main_PI(expname,exp_params,autocollect,active_channels,sensorcorr,period,K_p,K_i,exp_FRs,volume,p_range,p_incr,eqb_max,eqb_min,wpdim,wpcurrent,standard_repeats,ser,calibarr):
     
     #Global variables
     flow_data,n,fdataall = [[],[[],[],[],[]],[[],[],[],[]],[[],[],[],[]]],0,[] #time,flow,realp,setp
     pr_control, I = [0,0,0,0],[0,0,0,0]
-    wpprev = [1,1]
     init_start_t = time.time()
     timelast = time.time()
 
     #create folder for saving images
     path = './Flowplots/' + expname 
     fpath = './Flowplots/' + expname + '/flowdata'
-
+    
     initatefolder(path,fpath)
 
     #Setup live flow figure
@@ -236,8 +235,8 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                 for i, channel  in enumerate(active_channels):
                     #Flow rate reading
                     fr[i] = pump.get_sensor_data(channel)[0]
-                    if channel > 1: #If a lipid channel (in ethanol) make adjustment
-                        fr[i] = (fr[i]*4.05) - 80.09
+                    #Apply Correction
+                    fr[i] = (fr[i]*sensorcorr[channel-1][0]) + sensorcorr[channel-1][1]
                     
                     flow_data[1][i].append(fr[i])
                     #Calculate error
@@ -267,13 +266,14 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                 max_fr_error.append(np.max([errors[-1] for errors in fr_perc_error]))
 
                 if (time.time() - start_t) > eqb_min and collection == False:
+                    print(np.max(max_fr_error)*set_FR[i])
                     if np.max(max_fr_error)*set_FR[i] < 1:
                         print("FR condition reached \n\n\n")
                         #Move to well position
                         if autocollect == True:
                             expel.servoswitch(ser,1) #to collect mode
-                        K_p = K_p/100
-                        K_i = K_i/200
+                        K_p = K_p/5
+                        K_i = K_i/10
                         collection = True
                         col_list = time.time() - init_start_t
                         eq_t = time.time() - start_t
@@ -286,7 +286,8 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                     consistent_fr = False
                         
                 if (time.time() - start_t) > active_t:
-                    expel.servoswitch(ser,0) #To waste mode
+                    if autocollect == True:
+                        expel.servoswitch(ser,0) #To waste mode
                     break
 
 
@@ -331,17 +332,19 @@ def main_PI(expname,exp_params,autocollect,active_channels,period,K_p,K_i,exp_FR
                 wpcurrent[1] = wpcurrent[1] + 1
 
             #Move to new coordinate 
-            threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
-            print("Current plate position: ",wpcurrent)
+            if autocollect == True:
+                threading.Thread(target=expel.nextwell,args=(ser, wpprev, wpcurrent)).start()
+                print("Current plate position: ",wpcurrent)
 
-            K_p = K_p*100
-            K_i = K_i*200
+            K_p = K_p*5
+            K_i = K_i*10
 
             print(repeats,standard_repeats)
             
     stop(calibarr) 
-    expel.setdirection(ser,"Vert","Away")
-    expel.setstep(ser,0,2000)
+    if autocollect == True:
+        expel.setdirection(ser,"Vert","Away")
+        expel.setstep(ser,0,2000)
     plotupdate(ax1,ax2,flow_data,active_channels,col_list,exp_FRs,p_range,0,0,False)    
     plt.savefig(path+"/"+expname+"all"+".png")
     plt.show()
