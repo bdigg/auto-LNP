@@ -1,0 +1,33 @@
+,0
+id,40
+Date,240522
+Time,14:07:13
+expname,40-240522-CalceinEncapuslatedDOPC
+Details,5FRR
+Mode,FlowControl
+BufferName,TRIS-Calcein
+BufferParams,
+BufferNotes,TRIS-pH-7.61 with 0.5mM Calcein
+Lp1Name,DPPC
+Lp1Params,
+Lp1Notes,10mg/ml DPPC in Ethanol 99.5% Pure - MHF Stock
+Lp2Name,N/A
+Lp2Notes,N/A
+Lp2Params,
+Lp3Name,N/A
+Lp3Notes,N/A
+Lp3Params,
+exp_Params,"[120, 5.0, 'na', 'na', 'na', 'BufferX', 'Lipid1', 'Lipid2', 'Lipid3']"
+exp_FRs,"[[100, 20, 0, 0], [100, 20, 0, 0]]"
+inst_name,0204B3ED
+active_chans,"[1, 2]"
+sensorcorr,"[[1.1183, -6.4631], [1.8076, -7.9951], [1.7487, -9.2466], [1.9081, -7.7105]]"
+volume,75
+standard_repeats,3
+fail_repeats,1
+period,0.3
+K_p,[50 30 30 30]
+K_i,0.0001
+p_incr,"[-500, 500]"
+p_range,"[0, 2000]"
+maabs_error,1.5

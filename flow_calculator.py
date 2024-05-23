@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 #FRR
 FRR_range = range(1,10+1,1) #[min,max,increment]
@@ -50,3 +51,10 @@ def genparams(exp_FRs): #Use this for the Flow control condition
         FRR_value = flow[0]/np.sum(flow[1:])
     exp_params = [totalFR,FRR_value,"na","na","na","BufferX","Lipid1","Lipid2","Lipid3"]
     return(exp_params)
+
+def expulsiontime(tubingdim,set_FR):
+    area = math.pi*(tubingdim[0]/2)**2
+    tubevol = (area*(tubingdim[1]*1.2))
+    print(tubevol)
+    tubet = (area*(tubingdim[1]*1.2))/(np.sum(set_FR)/60)
+    return tubet

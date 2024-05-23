@@ -6,13 +6,12 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import time
 
-
 def serconnect():
     global ser
     setupstring = ""
     ports = serial.tools.list_ports.comports()
-    for p in ports:
-        print(p)
+    p = ports[0]
+    print(p)
     serialport = str(p.device)  # just takes the port - i.e. COM3
     print(serialport)
     ser = serial.Serial(
@@ -20,9 +19,7 @@ def serconnect():
     )  # then updates ser to take into account serial port
     print("Connected to " + serialport + "\n")
     #for i in range(3):
-    b = ser.readline()  # used if know input terminated with EOL characteres
-    readstring = b.decode("utf-8")
-    setupstring += readstring
+    print(ser)
     return ser
 
 def setdirection(ser,axis,direction):
@@ -61,7 +58,6 @@ def home(ser):
     bytestowrite = writestring.encode() #encodes the string to UTF-8
     ser.write(bytestowrite) # sending the data
     b = ser.readline()
-    readstring = b.decode("utf-8")
     #print(readstring)
     setdirection(ser,"Vert","Away")
     setdirection(ser,"Horz","Away")

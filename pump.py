@@ -18,7 +18,7 @@ def pressure_init():
     error = OB1_Initialization('0204B3ED'.encode('ascii'),2,2,2,2,byref(Instr_ID)) 
     print('error:%d' % error)
     print("OB1 ID: %d" % Instr_ID.value)
-    return error
+    return abs(error)
 
 def sensor_init(sensor1, sensor2, sensor3, sensor4):
     if sensor1 != None:
@@ -31,7 +31,8 @@ def sensor_init(sensor1, sensor2, sensor3, sensor4):
         error4=OB1_Add_Sens(Instr_ID, sensor4[0], sensor4[1], sensor4[2], sensor4[3], 7, 0)
 
     print('error add digit flow sensor:',error1,error2,error3,error4)
-    return error1
+    error = np.max([abs(error1),abs(error2),abs(error3),abs(error4)])
+    return error
 
 Calib = (c_double*1000)()
 def pressure_calib(answer):
@@ -44,14 +45,14 @@ def pressure_calib(answer):
             break
         if answer == 'load':
             #error = Elveflow_Calibration_Load (Calib_path.encode('ascii'), byref(Calib), 1000)
-            array = np.load("C:/Users/bdigg/OneDrive/Documents/GitHub/auto-LNP/auto-LNP/calib.npy")
+            array = np.load("C:/Users/bd923/OneDrive - Imperial College London/PhD/GitRepos/auto-LNP/calib.npy")
             array.ctypes.data
             calibarr = array.ctypes.data_as(ct.POINTER(ct.c_double*1000))
             error = 0
             break
         if answer == 'new':
             OB1_Calib (Instr_ID.value, Calib, 1000)
-            np.save("C:/Users/bdigg/OneDrive/Documents/GitHub/auto-LNP/auto-LNP/calib",Calib)
+            np.save("C:/Users/bd923/OneDrive - Imperial College London/PhD/GitRepos/auto-LNP/calib.npy",Calib)
             print('Calib saved in calib.npy')
             break
     return calibarr,error
